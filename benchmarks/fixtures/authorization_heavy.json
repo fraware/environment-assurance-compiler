@@ -1,0 +1,15 @@
+{
+  "generator": "authorization_heavy",
+  "oracle_id": "authorization_heavy-hidden-v1",
+  "environment_id": "bench.auth.heavy.v1",
+  "curated_count": 100,
+  "generated_count": 100,
+  "seed": 0,
+  "hidden_oracle_digest": "f8f4cca23463774f8cf41b292c916e4d2c9696abbf328aec09fdf163b3b1b455",
+  "family": "hidden_reference",
+  "concealed": true,
+  "episodes": [],
+  "metadata": {
+    "note": "Episodes materialized by envassure.benchmark.workflows.build_workflow_oracle; digest pins concealed oracle."
+  }
+}

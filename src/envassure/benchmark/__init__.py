@@ -198,6 +198,7 @@ class HiddenReferenceBenchmark:
                     failing_dimensions=[d.value for d in comparison.failing_dimensions],
                 )
             )
+        # comparison.matched is True only for overall MATCH (indeterminate never passes).
         matched = sum(1 for r in results if r.matched)
         return {
             "environment_id": self.world.environment_id,
@@ -424,3 +425,21 @@ def _agree(oracle: dict[str, Any], candidate: dict[str, Any], keys: Sequence[str
     if not present:
         return None
     return all(oracle.get(k) == candidate.get(k) for k in present)
+
+
+def __getattr__(name: str) -> Any:
+    if name in {
+        "WORKFLOW_IDS",
+        "WORKFLOW_SPECS",
+        "build_workflow_oracle",
+        "default_concealed_suite",
+        "oracle_digest_for",
+        "preregistered_stats_note",
+        "run_concealed_suite",
+        "write_workflow_fixture",
+        "write_workflow_manifest",
+    }:
+        from envassure.benchmark import workflows as _workflows
+
+        return getattr(_workflows, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
