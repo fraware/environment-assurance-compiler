@@ -107,6 +107,7 @@ def build_assurance_case(
     static_analysis: dict[str, Any] | None = None,
     dynamic_validation: dict[str, Any] | None = None,
     differential: dict[str, Any] | None = None,
+    proof_obligations: Any | None = None,
     generated_at: str | None = None,
 ) -> AssuranceCase:
     """Build an AssuranceCase from IR and optional canonical artifact digests/payloads."""
@@ -158,6 +159,10 @@ def build_assurance_case(
         claims.extend(extra_claims)
 
     amb_models = _normalize_ambiguities(ambiguities)
+    if proof_obligations is None:
+        from envassure.obligations import compile_proof_obligations
+
+        proof_obligations = compile_proof_obligations(world)
     sections = _build_sections(
         world,
         ir_digest=ir_digest,
@@ -170,6 +175,7 @@ def build_assurance_case(
         static_analysis=static_analysis or {},
         dynamic_validation=dynamic_validation or {},
         differential=differential or {},
+        proof_obligations=proof_obligations,
     )
 
     open_amb = sum(1 for a in amb_models if a.status == "open")
@@ -194,6 +200,8 @@ def build_assurance_case(
             "section_ids": [s[0] for s in ASSURANCE_CASE_SECTIONS],
             "open_ambiguities": open_amb,
             "release_ready": not release_blocked,
+            "proof_obligation_count": len(getattr(proof_obligations, "obligations", []) or []),
+            "proof_obligation_disclaimer": getattr(proof_obligations, "disclaimer", None),
         },
     )
 
@@ -382,6 +390,7 @@ def _build_sections(
     static_analysis: dict[str, Any],
     dynamic_validation: dict[str, Any],
     differential: dict[str, Any],
+    proof_obligations: Any | None = None,
 ) -> list[AssuranceSection]:
     unsupported = list(world.known_unsupported_behavior)
     for action in world.actions:
@@ -518,17 +527,36 @@ def _build_sections(
         title="Evidence obligations",
         body=[
             f"{len(world.evidence_obligations)} evidence obligation(s) declared on the world.",
+            (
+                f"{len(getattr(proof_obligations, 'obligations', []) or [])} compiled "
+                "proof obligation(s). Mechanism strength is recorded explicitly; "
+                "compiled obligations are not formal proofs."
+            ),
+            getattr(
+                proof_obligations,
+                "disclaimer",
+                "Proof obligations declare expected evidence — not completed proofs.",
+            ),
         ],
         tables=[
             {
-                "caption": "Obligations",
+                "caption": "Evidence obligations (IR)",
                 "headers": ["Id", "Class", "Trigger", "Failure behavior"],
                 "rows": [
                     [o.id, o.evidence_class, o.trigger, o.failure_behavior]
                     for o in world.evidence_obligations
                 ]
                 or [["—", "—", "—", "(none)"]],
-            }
+            },
+            {
+                "caption": "Compiled proof obligations",
+                "headers": ["Id", "Kind", "Status", "Strength"],
+                "rows": [
+                    [o.id, o.claim_kind, o.status, o.mechanism_strength]
+                    for o in (getattr(proof_obligations, "obligations", None) or [])
+                ]
+                or [["—", "—", "—", "(none)"]],
+            },
         ],
     )
 
