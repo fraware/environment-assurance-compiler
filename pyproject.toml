@@ -1,0 +1,167 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "envassure"
+dynamic = ["version"]
+description = "Environment Assurance Compiler — turn operational evidence into typed IR, executable runtimes, and assurance artifacts."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [
+  { name = "EnvAssure contributors" },
+]
+keywords = [
+  "environment",
+  "assurance",
+  "compiler",
+  "agent-evaluation",
+  "simulation",
+]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+dependencies = [
+  "pydantic>=2.7,<3",
+  "typer>=0.12,<1",
+  "rich>=13.7,<15",
+  "tomli>=2.0.1; python_version < '3.11'",
+  "tomli-w>=1.0.0,<2",
+  "pyyaml>=6.0.1,<7",
+  "packaging>=24.0",
+]
+
+[project.optional-dependencies]
+gym = ["gymnasium>=0.29"]
+pettingzoo = ["pettingzoo>=1.24"]
+model-assisted = ["httpx>=0.27,<1"]
+postgres = ["psycopg[binary]>=3.1,<4"]
+docs = [
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.25",
+]
+dev = [
+  "pytest>=8.2",
+  "pytest-cov>=5.0",
+  "hypothesis>=6.100",
+  "syrupy>=4.6",
+  "ruff>=0.5",
+  "mypy>=1.10",
+  "types-PyYAML>=6.0",
+  "types-toml>=0.10",
+]
+
+[project.scripts]
+eac = "envassure.cli.main:app"
+
+[project.entry-points."envassure.proposal_providers"]
+stub = "envassure.model_assisted:StubProposalProvider"
+http = "envassure.model_assisted.http:HttpProposalProvider"
+
+[project.urls]
+Homepage = "https://github.com/fraware/environment-assurance-compiler"
+Documentation = "https://github.com/fraware/environment-assurance-compiler#readme"
+Repository = "https://github.com/fraware/environment-assurance-compiler"
+Issues = "https://github.com/fraware/environment-assurance-compiler/issues"
+
+[tool.hatch.version]
+path = "src/envassure/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/tests",
+  "/docs",
+  "/adrs",
+  "/schemas",
+  "/examples",
+  "/LICENSE",
+  "/README.md",
+  "/CHANGELOG.md",
+  "/mkdocs.yml",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "SIM",
+  "RUF",
+]
+ignore = [
+  "E501",
+  "B008",  # Typer Argument/Option defaults are intentional
+  "RUF012",  # ClassVar annotations for Protocol-like metadata
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["envassure"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = false
+show_error_codes = true
+mypy_path = "src"
+files = ["src/envassure"]
+
+[[tool.mypy.overrides]]
+module = [
+  "tomli_w",
+  "yaml",
+  "gymnasium",
+  "gymnasium.*",
+  "pettingzoo",
+  "pettingzoo.*",
+  "psycopg",
+  "psycopg.*",
+  "httpx",
+  "httpx.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+  "envassure.runtime.effects",
+  "envassure.sources.procedure",
+  "envassure.sources.openapi",
+  "envassure.plugins",
+  "envassure.differential.compare",
+  "envassure.differential.probes",
+  "envassure.cli.commands.diffval_cmds",
+  "envassure.runtime.adapters.pettingzoo_env",
+  "envassure.tasks",
+  "envassure.verifiers",
+  "envassure.analysis.mutation",
+]
+disable_error_code = ["no-any-return", "arg-type", "var-annotated", "unused-ignore"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["envassure"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
