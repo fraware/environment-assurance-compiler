@@ -83,6 +83,8 @@ class PettingZooAssureEnv:
             infos[agent] = {
                 **result.info,
                 "ok": result.ok,
+                "outcome": result.outcome.value,
+                "reason_code": result.reason_code,
                 "failure_id": result.failure_id,
             }
             if result.terminal:

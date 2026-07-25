@@ -66,6 +66,8 @@ class GymAssureEnv:
         info = {
             **result.info,
             "ok": result.ok,
+            "outcome": result.outcome.value,
+            "reason_code": result.reason_code,
             "failure_id": result.failure_id,
             "events": [e.model_dump(mode="json") for e in result.events],
         }
