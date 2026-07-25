@@ -1,0 +1,70 @@
+# Contributing
+
+Thanks for your interest in EnvAssure (`envassure` / `eac`).
+
+## Development setup
+
+1. Use **Python 3.11 or 3.12**.
+2. From the repository root:
+
+   ```bash
+   pip install -e ".[dev]"
+   ```
+
+3. Run the local gates:
+
+   ```bash
+   ruff check src tests
+   mypy src/envassure
+   pytest
+   eac --help
+   ```
+
+4. Optional docs build:
+
+   ```bash
+   pip install -e ".[docs]"
+   mkdocs build --strict
+   ```
+
+## Contribution checklist
+
+Before opening a pull request:
+
+- [ ] Change is independently useful (no silent success for unfinished CLI commands).
+- [ ] New or changed public diagnostics are registered in
+      `envassure.diagnostics.catalog.DIAGNOSTIC_CATALOG` **and** listed in
+      [`docs/reference/diagnostics.md`](docs/reference/diagnostics.md).
+- [ ] Tests cover the new behavior (including fail-closed paths).
+- [ ] Docs / examples paths and CLI flags match the implementation
+      (`--actions`/`-a`, `eac migrate`, etc.).
+- [ ] IR migrations are **explicit** (`eac migrate` only) — never silent on
+      `verify-pack`, lint, or load.
+- [ ] No secrets, packs (`.eap`), or local `.eac/` state are committed.
+- [ ] Security-sensitive changes note trust-boundary impact (see
+      [`docs/security/threat-model.md`](docs/security/threat-model.md)).
+
+## Pull requests
+
+- Prefer small, reviewable changes.
+- Unimplemented CLI surfaces must fail closed with a stable diagnostic and a
+  non-zero exit code (never exit `0` as success).
+- Public IR schema changes need a design note, examples, compatibility analysis,
+  migration plan, and at least two environment use cases (see governance in the
+  project spec §25.4).
+
+## Code standards
+
+- Typed public API; mypy strict on `src/envassure`.
+- No network by default in compiler paths; network features are opt-in.
+- Canonical JSON digests for lockable artifacts.
+- Model proposals are never authoritative facts without an expert path.
+
+## Security
+
+Report vulnerabilities privately per [SECURITY.md](SECURITY.md). Do not open
+public issues for undisclosed vulnerabilities.
+
+## Community standards
+
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
