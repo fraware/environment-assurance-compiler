@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from envassure.diagnostics.models import DiagnosticReport
 from envassure.facts.models import SemanticFact
 
 
@@ -17,6 +19,14 @@ class SourceAdapter(Protocol):
     def parse(self, path: Path) -> list[SemanticFact]:
         """Parse ``path`` and return candidate facts. Fail closed on bad input."""
         ...
+
+
+@dataclass
+class AdapterResult:
+    """Facts plus adapter diagnostics (unsupported features, partial coverage)."""
+
+    facts: list[SemanticFact]
+    diagnostics: DiagnosticReport = field(default_factory=DiagnosticReport)
 
 
 class SourceParseError(ValueError):

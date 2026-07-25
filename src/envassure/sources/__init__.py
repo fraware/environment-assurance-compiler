@@ -7,7 +7,7 @@ from pathlib import Path
 from envassure.diagnostics.factory import make_diagnostic
 from envassure.diagnostics.models import DiagnosticReport
 from envassure.facts.models import SemanticFact
-from envassure.sources.base import SourceAdapter, SourceParseError
+from envassure.sources.base import AdapterResult, SourceAdapter, SourceParseError
 from envassure.sources.database import DatabaseAdapter
 from envassure.sources.openapi import OpenAPIAdapter
 from envassure.sources.policy import PolicyAdapter
@@ -68,12 +68,22 @@ def import_source(kind: str, path: Path | str) -> list[SemanticFact]:
         SourceParseError: adapter failed closed on bad input.
         KeyError: unknown adapter kind.
     """
+    return import_source_detailed(kind, path).facts
+
+
+def import_source_detailed(kind: str, path: Path | str) -> AdapterResult:
+    """Parse a source and return facts plus adapter diagnostics."""
     target = Path(path)
     try:
         adapter = get_adapter(kind)
     except KeyError as exc:
         raise KeyError(f"unknown source adapter kind: {kind}") from exc
-    return adapter.parse(target)
+    parse_detailed = getattr(adapter, "parse_detailed", None)
+    if callable(parse_detailed):
+        result = parse_detailed(target)
+        if isinstance(result, AdapterResult):
+            return result
+    return AdapterResult(facts=adapter.parse(target))
 
 
 def import_source_report(
@@ -84,8 +94,9 @@ def import_source_report(
     report = DiagnosticReport()
     target = Path(path)
     try:
-        facts = import_source(kind, target)
-        return facts, report
+        result = import_source_detailed(kind, target)
+        report.extend(result.diagnostics.diagnostics)
+        return result.facts, report
     except KeyError:
         report.add(make_diagnostic("EAC1005", kind=kind, subject=kind))
         return [], report
@@ -120,6 +131,7 @@ def import_source_report(
 __all__ = [
     "ADAPTERS",
     "KIND_ALIASES",
+    "AdapterResult",
     "DatabaseAdapter",
     "OpenAPIAdapter",
     "PolicyAdapter",
@@ -129,6 +141,7 @@ __all__ = [
     "TraceAdapter",
     "get_adapter",
     "import_source",
+    "import_source_detailed",
     "import_source_report",
     "resolve_kind",
 ]
