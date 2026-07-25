@@ -90,7 +90,11 @@ def import_source_report(
         report.add(make_diagnostic("EAC1005", kind=kind, subject=kind))
         return [], report
     except ImportError as exc:
-        extra = "postgres" if "postgres" in str(exc).lower() or "psycopg" in str(exc).lower() else "unknown"
+        extra = (
+            "postgres"
+            if "postgres" in str(exc).lower() or "psycopg" in str(exc).lower()
+            else "unknown"
+        )
         report.add(make_diagnostic("EAC9003", extra=extra, subject=str(target)))
         report.add(
             make_diagnostic(

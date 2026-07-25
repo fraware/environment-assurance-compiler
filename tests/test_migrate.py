@@ -130,9 +130,7 @@ def test_verify_pack_never_auto_migrates(tmp_path: Path) -> None:
     raw = json.loads(FIXTURE_01.read_text(encoding="utf-8"))
     # Load via migrate path only for a valid 0.2 world to package; separately
     # ensure verify_pack does not invoke migrate (no ir rewrite side effects).
-    world = WorldDefinition.model_validate(
-        apply_transforms(raw, "0.1.0", "0.2.0")[0]
-    )
+    world = WorldDefinition.model_validate(apply_transforms(raw, "0.1.0", "0.2.0")[0])
     pack_path = tmp_path / "fixture.eap"
     save_pack(pack_path, world)
     before = pack_path.read_bytes()

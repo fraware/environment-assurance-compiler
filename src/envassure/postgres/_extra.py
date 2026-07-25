@@ -5,8 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 POSTGRES_IMPORT_ERROR = (
-    "psycopg is required for Postgres features. "
-    "Install with: pip install 'envassure[postgres]'"
+    "psycopg is required for Postgres features. Install with: pip install 'envassure[postgres]'"
 )
 
 

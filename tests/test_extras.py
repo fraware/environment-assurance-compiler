@@ -33,9 +33,10 @@ def test_parse_postgres_ddl_offline_no_psycopg() -> None:
     assert col_types["id"] == "UUID"
     assert col_types["email"].startswith("VARCHAR")
     assert col_types["meta"] == "JSONB"
-    assert "TIMESTAMPTZ" in col_types["created_at"] or "TIMESTAMP WITH TIME ZONE" in col_types[
-        "created_at"
-    ]
+    assert (
+        "TIMESTAMPTZ" in col_types["created_at"]
+        or "TIMESTAMP WITH TIME ZONE" in col_types["created_at"]
+    )
     orders = tables[1]
     assert orders["table"] == "orders"
     order_cols = {c["name"]: c["type"] for c in orders["columns"]}  # type: ignore[index]
