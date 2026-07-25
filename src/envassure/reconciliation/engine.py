@@ -1,4 +1,4 @@
-"""Reconciliation engine: conflicts, aliases, missing operational semantics."""
+"""Reconciliation engine v2: conflicts, aliases, accepted vs unresolved facts."""
 
 from __future__ import annotations
 
@@ -23,15 +23,26 @@ _DEFAULT_PRECEDENCE = SourcePrecedenceSection().order
 
 
 class ReconciliationResult(BaseModel):
-    """Outcome of fact reconciliation."""
+    """Outcome of fact reconciliation.
+
+    Only ``accepted_facts`` are safe to project into authoritative IR.
+    ``ranked_candidates`` / ``preferred_facts`` are review-ordering hints from
+    source precedence — never silent semantic resolutions. Conflicted subjects
+    remain in ``unresolved_ambiguities`` until an expert decision.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     ambiguities: list[AmbiguityRecord] = Field(default_factory=list)
+    unresolved_ambiguities: list[AmbiguityRecord] = Field(default_factory=list)
     diagnostics: DiagnosticReport = Field(default_factory=DiagnosticReport)
     preferred_facts: list[SemanticFact] = Field(default_factory=list)
+    ranked_candidates: list[SemanticFact] = Field(default_factory=list)
+    accepted_facts: list[SemanticFact] = Field(default_factory=list)
+    rejected_fact_ids: list[str] = Field(default_factory=list)
     superseded_fact_ids: list[str] = Field(default_factory=list)
     alias_groups: list[list[str]] = Field(default_factory=list)
+    decision_artifacts: list[dict[str, Any]] = Field(default_factory=list)
 
 
 @dataclass
@@ -42,15 +53,22 @@ class _FactGroup:
     facts: list[SemanticFact] = field(default_factory=list)
 
 
+def ambiguity_id(subject: str, predicate: str, kind: str) -> str:
+    """Stable hashed ambiguity id (production; no demo hard-codes)."""
+    digest = hashlib.sha256(f"{kind}|{subject}|{predicate}".encode()).hexdigest()[:8]
+    return f"AMB-{digest.upper()}"
+
+
 def reconcile(
     facts: Sequence[SemanticFact] | Iterable[SemanticFact],
     precedence: Sequence[str] | SourcePrecedenceSection | None = None,
 ) -> ReconciliationResult:
     """Detect conflicts/aliases/missing semantics and emit ambiguities + diagnostics.
 
-    ``precedence`` projects candidate interpretation order using ``eac.toml``
+    ``precedence`` projects candidate interpretation *order* using ``eac.toml``
     ``source_precedence.order`` (evidence class ranking). Conflicts remain open
-    ambiguities; precedence only orders candidates.
+    ambiguities; precedence only orders candidates for review — it does not
+    accept a winner into authoritative IR.
     """
     fact_list = list(facts)
     order = _normalize_precedence(precedence)
@@ -68,7 +86,7 @@ def reconcile(
                 reason=f"identifiers appear synonymous: {group}",
             )
         )
-        amb_id = _ambiguity_id("alias", subject, "alias")
+        amb_id = ambiguity_id(subject, "alias", "alias")
         result.ambiguities.append(
             AmbiguityRecord(
                 id=amb_id,
@@ -93,11 +111,15 @@ def reconcile(
         )
 
     preferred: dict[tuple[str, str, str], SemanticFact] = {}
+    accepted: dict[tuple[str, str, str], SemanticFact] = {}
+    ranked_all: list[SemanticFact] = []
     superseded: list[str] = []
+    rejected: list[str] = []
 
     for key, fact_group in groups.items():
         distinct = _distinct_values(fact_group.facts)
         ranked = _rank_by_precedence(fact_group.facts, order)
+        ranked_all.extend(ranked)
         if len(distinct) > 1:
             subject = f"{fact_group.subject_kind}:{fact_group.subject_id}"
             reason = (
@@ -107,7 +129,7 @@ def reconcile(
             result.diagnostics.add(make_diagnostic("EAC2002", subject=subject, reason=reason))
             interpretations = [_interpretation(f, order) for f in ranked]
             amb = AmbiguityRecord(
-                id=_ambiguity_id(subject, fact_group.predicate, "conflict"),
+                id=ambiguity_id(subject, fact_group.predicate, "conflict"),
                 subject=subject,
                 source_excerpts=[
                     f"{f.source_refs}: {f.predicate}={_short(f.value)}" for f in ranked
@@ -130,23 +152,31 @@ def reconcile(
                     source_ids=_unique_sources(ranked),
                 ),
             )
-            # Stable demo id for the classic refund retry/timeout conflict.
-            if _is_refund_retry_timeout_conflict(fact_group, ranked):
-                amb = amb.model_copy(update={"id": "AMB-0042"})
             result.ambiguities.append(amb)
-            # Mark lower-precedence facts superseded for projection hints.
+            # Ranked head is a review hint only — not accepted into IR.
             winner = ranked[0]
             preferred[key] = winner.model_copy(
                 update={
                     "confidence": winner.confidence.model_copy(
                         update={"conflict_status": "unresolved"}
-                    )
+                    ),
+                    "status": "candidate",
                 }
             )
             for loser in ranked[1:]:
                 superseded.append(loser.fact_id)
+                rejected.append(loser.fact_id)
         else:
-            preferred[key] = ranked[0]
+            accepted_fact = ranked[0].model_copy(
+                update={
+                    "status": "accepted",
+                    "confidence": ranked[0].confidence.model_copy(
+                        update={"conflict_status": "none"}
+                    ),
+                }
+            )
+            preferred[key] = accepted_fact
+            accepted[key] = accepted_fact
 
     # Missing timeout / retry / idempotency on actions.
     action_ids = {f.subject.id for f in fact_list if f.subject.kind == "action"}
@@ -154,6 +184,11 @@ def reconcile(
         (g.subject_kind, g.subject_id, g.predicate)
         for g in groups.values()
         if len(_distinct_values(g.facts)) > 1
+    }
+    conflicted_actions_retry = {
+        action_id
+        for (kind, action_id, pred) in conflicted_keys
+        if kind == "action" and pred == "retry_behavior"
     }
     for action_id in sorted(action_ids):
         preds = {
@@ -168,15 +203,14 @@ def reconcile(
         if has_timeout and (not has_retry or retry_conflicted):
             subject = f"action:{action_id}"
             result.diagnostics.add(make_diagnostic("EAC4027", action_id=action_id, subject=subject))
-            if not any(
+            # Skip duplicate missing_retry when a retry semantic_conflict already covers it.
+            if action_id not in conflicted_actions_retry and not any(
                 a.conflict_class == "missing_retry_semantics" and action_id in a.affected_actions
                 for a in result.ambiguities
-            ) and not any(
-                a.id == "AMB-0042" and action_id in a.affected_actions for a in result.ambiguities
             ):
                 result.ambiguities.append(
                     AmbiguityRecord(
-                        id=_ambiguity_id(subject, "retry_behavior", "missing"),
+                        id=ambiguity_id(subject, "retry_behavior", "missing"),
                         subject=subject,
                         source_excerpts=[
                             f"timeout_behavior={_short(preds['timeout_behavior'].value)}"
@@ -202,22 +236,20 @@ def reconcile(
                 )
         if (has_timeout or has_retry) and not has_idempotency:
             subject = f"action:{action_id}"
-            # Prefer folding into AMB-0042 when already present for this action.
-            existing = next(
-                (
-                    a
-                    for a in result.ambiguities
-                    if a.id == "AMB-0042" and action_id in a.affected_actions
-                ),
-                None,
+            # Fold into existing retry conflict for the same action when present.
+            has_retry_conflict = any(
+                a.conflict_class == "semantic_conflict"
+                and action_id in a.affected_actions
+                and "retry_behavior" in "".join(a.source_excerpts)
+                for a in result.ambiguities
             )
-            if existing is None and not any(
+            if not has_retry_conflict and not any(
                 a.conflict_class == "missing_idempotency" and action_id in a.affected_actions
                 for a in result.ambiguities
             ):
                 result.ambiguities.append(
                     AmbiguityRecord(
-                        id=_ambiguity_id(subject, "idempotency", "missing"),
+                        id=ambiguity_id(subject, "idempotency", "missing"),
                         subject=subject,
                         source_excerpts=["missing idempotency while timeout/retry present"],
                         conflict_class="missing_idempotency",
@@ -241,10 +273,13 @@ def reconcile(
                     )
                 )
 
-    # Deduplicate ambiguity ids (AMB-0042 override may collide with hash id).
     result.ambiguities = _dedupe_ambiguities(result.ambiguities)
+    result.unresolved_ambiguities = [a for a in result.ambiguities if a.status == "open"]
     result.preferred_facts = list(preferred.values())
+    result.ranked_candidates = ranked_all
+    result.accepted_facts = list(accepted.values())
     result.superseded_fact_ids = superseded
+    result.rejected_fact_ids = rejected
     return result
 
 
@@ -321,8 +356,6 @@ def _unique_sources(facts: Sequence[SemanticFact]) -> list[str]:
     seen: list[str] = []
     for fact in facts:
         for ref in fact.source_refs:
-            base = ref.split(":")[0] if ":" in ref and ref.count(":") == 1 else ref
-            # Keep full path refs; only strip line suffixes like path:12 when numeric.
             parts = ref.rsplit(":", 1)
             base = parts[0] if len(parts) == 2 and parts[1].isdigit() else ref
             if base not in seen:
@@ -345,7 +378,6 @@ def _detect_aliases(facts: list[SemanticFact]) -> list[list[str]]:
             explicit[left].add(right)
             explicit[right].add(left)
 
-    # Union-find style merge for explicit aliases.
     visited: set[str] = set()
     for node in list(explicit):
         if node in visited:
@@ -362,7 +394,6 @@ def _detect_aliases(facts: list[SemanticFact]) -> list[list[str]]:
         if len(component) > 1:
             groups.append(sorted(component))
 
-    # Shared description/name across different action ids.
     by_name: dict[str, set[str]] = defaultdict(set)
     for fact in facts:
         if fact.predicate in {"description", "name", "display_name"} and isinstance(
@@ -379,32 +410,11 @@ def _detect_aliases(facts: list[SemanticFact]) -> list[list[str]]:
     return groups
 
 
-def _ambiguity_id(subject: str, predicate: str, kind: str) -> str:
-    digest = hashlib.sha256(f"{kind}|{subject}|{predicate}".encode()).hexdigest()[:8]
-    return f"AMB-{digest.upper()}"
-
-
 def _short(value: Any, limit: int = 80) -> str:
     text = json.dumps(value, default=str) if not isinstance(value, str) else value
     if len(text) > limit:
         return text[: limit - 3] + "..."
     return text
-
-
-def _is_refund_retry_timeout_conflict(
-    group: _FactGroup,
-    facts: list[SemanticFact],
-) -> bool:
-    if group.subject_id != "submit_refund":
-        return False
-    if group.predicate not in {"retry_behavior", "timeout_behavior"}:
-        return False
-    evidence = {f.confidence.evidence_class for f in facts}
-    return (
-        "api_contract" in evidence
-        or "approved_procedure" in evidence
-        or ("operational_trace" in evidence and group.predicate == "retry_behavior")
-    )
 
 
 def _dedupe_ambiguities(items: list[AmbiguityRecord]) -> list[AmbiguityRecord]:
