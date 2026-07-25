@@ -6,6 +6,8 @@ from envassure.differential.compare import (
     ComparisonDimension,
     ComparisonResult,
     ComparisonTolerances,
+    DimensionVerdict,
+    VerdictStatus,
     compare_outcomes,
 )
 from envassure.differential.connector import (
@@ -28,6 +30,7 @@ __all__ = [
     "ComparisonDimension",
     "ComparisonResult",
     "ComparisonTolerances",
+    "DimensionVerdict",
     "FileBackedSimulatorConnector",
     "InMemoryReferenceConnector",
     "LocalHttpStubConnector",
@@ -40,6 +43,7 @@ __all__ = [
     "ReductionStep",
     "ReferenceConnector",
     "SubprocessReferenceConnector",
+    "VerdictStatus",
     "compare_outcomes",
     "minimize_counterexample",
     "plan_probes",
