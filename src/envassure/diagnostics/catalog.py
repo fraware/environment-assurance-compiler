@@ -103,6 +103,21 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         consequence="Import aborted.",
         suggested_repair="Use one of: openapi, database, policy, procedure, traces.",
     ),
+    "EAC1006": _def(
+        "EAC1006",
+        Severity.WARNING,
+        "Unsupported OpenAPI feature `{feature}` on `{subject}`: {reason}",
+        "EAC1xxx",
+        "The OpenAPI adapter detected a construct outside its supported matrix.",
+        consequence=(
+            "Facts for the supported subset are still emitted; unsupported "
+            "constructs are not projected into authoritative semantics."
+        ),
+        suggested_repair=(
+            "Simplify the construct, supply complementary sources, or record "
+            "an expert decision for the unsupported semantics."
+        ),
+    ),
     # --- EAC2xxx semantic conflicts ---
     "EAC2001": _def(
         "EAC2001",
@@ -194,6 +209,15 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "An explicit cross-minor transform could not be applied or produced an invalid document path.",
         consequence="No IR rewrite is written; caller must fix the source document or upgrade the compiler.",
         suggested_repair="Inspect the document against the 0.1.0→0.2.0 delta and re-run `eac migrate`.",
+    ),
+    "EAC3007": _def(
+        "EAC3007",
+        Severity.ERROR,
+        "Release readiness gate failed ({profile}): {reason}",
+        "EAC3xxx",
+        "Validation pipeline v2 rejected the world under the selected release profile.",
+        consequence="Lint/pack gates fail closed; the IR must not be treated as release-ready.",
+        suggested_repair="Resolve blocking diagnostics or choose a weaker profile for authoring only.",
     ),
     # --- EAC4xxx state/transition ---
     "EAC4001": _def(
@@ -329,6 +353,38 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         consequence="Partial-observability claims are inconsistent with declared mappings.",
         suggested_repair="Align visible_paths, omitted_paths, labels, and access_control.",
     ),
+    "EAC5004": _def(
+        "EAC5004",
+        Severity.ERROR,
+        "Unsupported observation semantic: {reason}",
+        "EAC5xxx",
+        "An ObservationProjection declares delay, noise, staleness, side-channel, "
+        "aggregation, transformation, or related semantics that the runtime cannot execute.",
+        consequence=(
+            "Executable/release profiles reject the IR; runtime observe() never "
+            "silently ignores unsupported fields."
+        ),
+        suggested_repair=(
+            "Remove the unsupported field, replace with a supported form, or mark "
+            "the behavior in known_unsupported_behavior and use a non-executable profile."
+        ),
+    ),
+    "EAC5005": _def(
+        "EAC5005",
+        Severity.ERROR,
+        "Observation projection missing or unsafe: {reason}",
+        "EAC5xxx",
+        "An actor lacks a bound observation projection, references an unknown "
+        "projection, or would otherwise observe unrestricted authoritative state.",
+        consequence=(
+            "Fail-closed observe() returns an empty projection; release gates block "
+            "full-state leakage."
+        ),
+        suggested_repair=(
+            "Bind every policy actor to a declared ObservationProjection with an "
+            "explicit visible_paths allow-list."
+        ),
+    ),
     # --- EAC6xxx tasks/verifiers ---
     "EAC6001": _def(
         "EAC6001",
@@ -402,6 +458,39 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Counterexample-guided reconciliation produced ambiguities and optional corrections.",
         consequence="Open ambiguities block release-grade differential claims until decided.",
         suggested_repair="Review generation under validation/refinements/ and run eac decide.",
+    ),
+    "EAC7006": _def(
+        "EAC7006",
+        Severity.WARNING,
+        "Differential dimension indeterminate: {reason}",
+        "EAC7xxx",
+        "A required comparison dimension lacks evidence or is underpowered.",
+        consequence=(
+            "Overall differential pass is blocked; missing or underpowered "
+            "evidence is never treated as a match."
+        ),
+        suggested_repair=(
+            "Supply the missing dimension evidence, increase sample size, or "
+            "declare the dimension not applicable for the probe."
+        ),
+    ),
+    "EAC7007": _def(
+        "EAC7007",
+        Severity.NOTE,
+        "CEGR closed on evidence: {reason}",
+        "EAC7xxx",
+        "CEGR v2 closed a refinement generation only after replay evidence matched.",
+        consequence="Generation is immutable; residual expert decisions remain auditable.",
+        suggested_repair="Verify accepted_facts and pack claims cite this generation digest.",
+    ),
+    "EAC7008": _def(
+        "EAC7008",
+        Severity.WARNING,
+        "CEGR remains open: {reason}",
+        "EAC7xxx",
+        "CEGR v2 did not close; indeterminate or mismatched evidence blocks closure.",
+        consequence="Release IR must not absorb preferred_facts; expert decide() required.",
+        suggested_repair="Replay both systems, resolve ambiguities, or mark unsupported semantics.",
     ),
     "EAC8007": _def(
         "EAC8007",
