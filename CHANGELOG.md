@@ -21,10 +21,40 @@ are versioned separately (see [compatibility policy](docs/compatibility.md)).
   extra.
 - Release-oriented documentation pass (README, guides, diagnostic catalog,
   threat model, MkDocs nav aligned to §25.1).
+- Release-readiness baseline for 0.2 RC (`docs/research/release-readiness-0.2.md`),
+  adoption guides (ten-minute tutorial, fidelity claims, environment-defect
+  reporting, plugin/source/runtime author stubs), and GitHub issue templates.
+- CI expansion: Python 3.11–3.13 matrix, sdist/wheel clean install, coverage
+  XML artifact, strict MkDocs build, schema/fixture checks, counter example
+  E2E, CodeQL, blocking `pip-audit`, extras import matrix, offline benchmark
+  regression, Gitleaks secret scan, advisory CycloneDX SBOM preview.
+- Coverage fail-under gates: overall **75%**, cores (omit CLI/adapters/tasks)
+  **80%**, assurance packages **80%**, semantic cores **90%**
+  (`.coveragerc.semantic`).
+- Schedule workflow `nightly-empirical.yml` for full concealed benchmarks
+  (CI PRs keep `--max-probes 20`).
+- Release workflow: wheel/sdist build, CycloneDX SBOM assets, GitHub OIDC
+  build-provenance attestations (`actions/attest-build-provenance`).
+- Docs: [supply chain](docs/security/supply-chain.md) verification guide;
+  author guides for plugins / source adapters / runtime extensions.
 
 ### Changed
 
 - Workspace default `ir_version` and counter example IR updated to `0.2.0`.
+- Compatibility doc extended with deprecation policy and release-cadence pointer.
+
+### Release cadence
+
+Pre-alpha trains are **milestone-driven** (remediation R00–R17 toward
+`0.2.0rc`), not a fixed calendar. Notable package versions are tagged and
+described in this changelog. After the first stable channel:
+
+- **Patch** — bugfixes and security fixes; no intentional contract breaks.
+- **Minor** — additive IR/plugin/pack features within the compatibility window;
+  deprecations announced here before removal.
+- **Major** — breaking contract changes when on a stable channel.
+
+Yanked or broken releases are called out explicitly in this file.
 
 ## [0.1.0a0] — 2026-07-25
 

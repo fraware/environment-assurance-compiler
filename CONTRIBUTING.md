@@ -4,7 +4,7 @@ Thanks for your interest in EnvAssure (`envassure` / `eac`).
 
 ## Development setup
 
-1. Use **Python 3.11 or 3.12**.
+1. Use **Python 3.11, 3.12, or 3.13**.
 2. From the repository root:
 
    ```bash
@@ -16,9 +16,15 @@ Thanks for your interest in EnvAssure (`envassure` / `eac`).
    ```bash
    ruff check src tests
    mypy src/envassure
-   pytest
+   pytest --cov=envassure --cov-fail-under=75
+   coverage report --rcfile=.coveragerc.cores
+   coverage report --rcfile=.coveragerc.assurance
+   coverage report --rcfile=.coveragerc.semantic
    eac --help
    ```
+
+   Coverage floors and SBOM / attestation verify steps are documented in
+   [`docs/security/supply-chain.md`](docs/security/supply-chain.md).
 
 4. Optional docs build:
 
@@ -26,6 +32,10 @@ Thanks for your interest in EnvAssure (`envassure` / `eac`).
    pip install -e ".[docs]"
    mkdocs build --strict
    ```
+
+Baseline capture commands for the 0.2 track are listed in
+[`docs/research/release-readiness-0.2.md`](docs/research/release-readiness-0.2.md)
+(do not claim green without recording measured output).
 
 ## Contribution checklist
 
@@ -46,7 +56,10 @@ Before opening a pull request:
 
 ## Pull requests
 
-- Prefer small, reviewable changes.
+- Prefer small, reviewable changes; **require review before merging to `main`**
+  during the 0.2 remediation window (see release-readiness PR merge discipline).
+- Do not expand top-level CLI commands, adapters, or extras while R01–R12 are
+  open unless the change is required for correctness remediation.
 - Unimplemented CLI surfaces must fail closed with a stable diagnostic and a
   non-zero exit code (never exit `0` as success).
 - Public IR schema changes need a design note, examples, compatibility analysis,
