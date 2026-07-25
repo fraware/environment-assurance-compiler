@@ -1,0 +1,11 @@
+{
+  "model_id": "stub-provider-v0",
+  "responses": [
+    {
+      "prompt": "Suggest timeout semantics for fulfill",
+      "subject": "action.fulfill",
+      "predicate": "timeout_behavior",
+      "value": "fail_closed"
+    }
+  ]
+}

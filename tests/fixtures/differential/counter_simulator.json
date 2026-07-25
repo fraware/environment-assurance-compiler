@@ -1,0 +1,13 @@
+{
+  "connector_name": "counter_sim",
+  "kind": "counter",
+  "initial_state": {"count": 0},
+  "authorization": {
+    "reset": {"required_roles": ["admin"], "failure_id": "unauthorized"}
+  },
+  "actions": {
+    "increment": {"effect": "count += 1"},
+    "reset": {"effect": "count = 0"},
+    "get": {"effect": "noop"}
+  }
+}
