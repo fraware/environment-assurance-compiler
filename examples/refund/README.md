@@ -1,6 +1,9 @@
 # Support / refund workflow
 
-Intentional conflicting sources for expert decision **AMB-0042**:
+Intentional conflicting sources for the classic `submit_refund` retry conflict.
+Production reconcile emits a **stable hashed** ambiguity id; historical demo
+label **AMB-0042** is a fixture alias in `world.py` only (never hard-coded in
+the reconcile engine).
 
 | Source | Path | Claim |
 | ------ | ---- | ----- |
@@ -11,14 +14,14 @@ Intentional conflicting sources for expert decision **AMB-0042**:
 ## Reconciliation demo
 
 ```bash
-python -c "from examples.refund.world import reconcile_refund, find_amb_0042; r=reconcile_refund(); print(find_amb_0042(r).id); print(r.diagnostics.diagnostics)"
+python -c "from examples.refund.world import reconcile_refund, find_amb_0042, AMB_0042_ALIAS, CLASSIC_REFUND_RETRY_AMBIGUITY_ID; r=reconcile_refund(); a=find_amb_0042(r); print(a.id, AMB_0042_ALIAS, CLASSIC_REFUND_RETRY_AMBIGUITY_ID); print(r.diagnostics.diagnostics)"
 ```
 
 ## Expected open ambiguity
 
-`AMB-0042` — conflict on retry/timeout semantics for `submit_refund`.
-Release-grade packs must record an expert decision via `eac decide` before
-projecting safe retry/idempotency into IR.
+Hashed id for `conflict|action:submit_refund|retry_behavior` (alias `AMB-0042`
+in packaged demo docs). Release-grade packs must record an expert decision via
+`eac decide` before projecting safe retry/idempotency into IR.
 
 ## Build IR
 
@@ -30,4 +33,4 @@ eac build-ir --module examples/refund/world.py -o examples/refund/ir/world.json
 eac lint examples/refund/ir/world.json
 ```
 
-Guide: [Build from OpenAPI](../docs/guides/build-from-openapi.md).
+Guide: [Build from OpenAPI](../../docs/guides/build-from-openapi.md).

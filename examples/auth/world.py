@@ -46,6 +46,7 @@ def build_auth_world() -> WorldDefinition:
         "approver_view",
         target_actor_class="approver",
         visible_paths=["request_status", "requester_id"],
+        omitted_paths=["approver_id"],
     )
     world.failure(
         "unauthorized",
