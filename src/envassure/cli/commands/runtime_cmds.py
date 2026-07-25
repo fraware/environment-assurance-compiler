@@ -58,10 +58,15 @@ def _run_sequence(
                 "actor_id": aid,
                 "action_id": action_id,
                 "ok": result.ok,
+                "outcome": result.outcome.value,
+                "reason_code": result.reason_code,
                 "observation": result.observation,
                 "terminal": result.terminal,
                 "failure_id": result.failure_id,
                 "events": [e.type for e in result.events],
+                "transaction_id": (
+                    result.transaction.transaction_id if result.transaction else None
+                ),
             }
         )
         if result.terminal:

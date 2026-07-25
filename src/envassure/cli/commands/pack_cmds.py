@@ -13,6 +13,8 @@ from envassure.diagnostics.factory import make_diagnostic
 from envassure.diagnostics.models import DiagnosticReport
 from envassure.ir.io import load_world
 from envassure.ir.models import AmbiguityRecord
+from envassure.ir.validate import ReleaseProfile, validate_world
+from envassure.obligations import compile_proof_obligations, proof_obligation_pack_members
 from envassure.packaging import save_pack, verify_pack
 from envassure.reports import (
     assurance_pack_members,
@@ -29,14 +31,30 @@ def package_command(
         "--include-report/--no-include-report",
         help="Embed assurance-case JSON/HTML in the pack.",
     ),
+    profile: str = typer.Option(
+        ReleaseProfile.RESEARCH_RELEASE.value,
+        "--profile",
+        help=(
+            "Release profile gate before packing: authoring | executable | "
+            "differential | research_release | deployment_calibration."
+        ),
+    ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
     """Build an Environment Pack (.eap)."""
     world = load_world(ir_path)
-    report = DiagnosticReport()
+    report = validate_world(world, profile=profile)
+    if report.has_errors():
+        emit_report(report, as_json=as_json, exit_code=ExitCode.ERROR)
     extra: dict[str, bytes | str] = {}
+    proof_bundle = compile_proof_obligations(world)
+    extra.update(proof_obligation_pack_members(proof_bundle))
     if include_report:
-        case = build_assurance_case(world, ambiguities=list(world.ambiguities))
+        case = build_assurance_case(
+            world,
+            ambiguities=list(world.ambiguities),
+            proof_obligations=proof_bundle,
+        )
         extra.update(assurance_pack_members(case))
     try:
         manifest = save_pack(output, world, extra_files=extra or None)
@@ -46,11 +64,14 @@ def package_command(
     emit_success(
         as_json=as_json,
         message=f"Wrote pack {output}",
+        report=report,
         extra={
             "output": str(output),
             "content_digest": manifest.content_digest,
             "environment_id": world.environment_id,
             "included_report": include_report,
+            "profile": profile,
+            "proof_obligation_count": len(proof_bundle.obligations),
         },
     )
 
