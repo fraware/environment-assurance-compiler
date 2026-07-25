@@ -12,12 +12,14 @@ from envassure.analysis import analyze_world, apply_mutation
 from envassure.analysis.mutation import MutationCategory
 from envassure.differential import (
     ComparisonDimension,
+    ComparisonTolerances,
     FileBackedSimulatorConnector,
     InMemoryReferenceConnector,
     LocalHttpStubConnector,
     ProbeOutcome,
     RecordedFixtureConnector,
     SubprocessReferenceConnector,
+    VerdictStatus,
     compare_outcomes,
     minimize_counterexample,
     plan_probes,
@@ -188,7 +190,7 @@ def test_compare_dimensions_and_fixture_diff() -> None:
     )
     assert not result.matched
     assert ComparisonDimension.SUCCESS in result.failing_dimensions
-
+    assert result.overall_status.value == "mismatch"
 
 def test_minimize_preserves_reduction_steps() -> None:
     sequence = ["a", "b", "c", "d", "e", "f"]
@@ -243,6 +245,83 @@ def test_simulator_vs_simulator_differential_typed_dims() -> None:
         ],
     )
     assert result.matched
+    assert result.overall_status is VerdictStatus.MATCH
+
+
+def test_differential_missing_evidence_is_indeterminate_not_match() -> None:
+    ref = ProbeOutcome(probe_id="p1", success=True)
+    cand = ProbeOutcome(probe_id="p1", success=True)
+    result = compare_outcomes(
+        ref,
+        cand,
+        dimensions=[
+            ComparisonDimension.AUTHORIZATION,
+            ComparisonDimension.LATENCY,
+            ComparisonDimension.IDEMPOTENCY,
+        ],
+    )
+    assert not result.matched
+    assert result.overall_status is VerdictStatus.INDETERMINATE
+    assert all(v.status is VerdictStatus.INDETERMINATE for v in result.verdicts)
+    assert any(d.code == "EAC7006" for d in result.diagnostics)
+
+
+def test_differential_underpowered_stochastic_is_indeterminate() -> None:
+    from envassure.ir.models import WorldDefinition
+
+    world = WorldDefinition(
+        environment_id="stoch",
+        name="stoch",
+        determinism="statistical",
+    )
+    samples = [(True, True), (True, False), (False, True)]
+    result = compare_outcomes(
+        ProbeOutcome(probe_id="s", success=True),
+        ProbeOutcome(probe_id="s", success=True),
+        world=world,
+        stochastic_samples=samples,
+        dimensions=[ComparisonDimension.SUCCESS],
+        tolerances=ComparisonTolerances(stochastic_min_samples=30, equivalence_margin=0.05),
+    )
+    assert not result.matched
+    assert result.verdicts[0].status is VerdictStatus.INDETERMINATE
+    assert result.verdicts[0].detail == "insufficient_samples"
+    assert any(d.code == "EAC7006" for d in result.diagnostics)
+
+
+def test_differential_paired_stochastic_respects_equivalence_margin() -> None:
+    from envassure.ir.models import WorldDefinition
+
+    world = WorldDefinition(
+        environment_id="stoch",
+        name="stoch",
+        determinism="statistical",
+    )
+    # 40 paired agreements → within margin.
+    agree = [(True, True)] * 20 + [(False, False)] * 20
+    ok = compare_outcomes(
+        ProbeOutcome(probe_id="s", success=True),
+        ProbeOutcome(probe_id="s", success=True),
+        world=world,
+        stochastic_samples=agree,
+        dimensions=[ComparisonDimension.SUCCESS],
+        tolerances=ComparisonTolerances(stochastic_min_samples=30, equivalence_margin=0.05),
+    )
+    assert ok.matched
+    assert ok.verdicts[0].status is VerdictStatus.MATCH
+
+    # Strong rate disagreement beyond margin (ref mostly succeeds, cand fails).
+    diverge = [(True, False)] * 30 + [(True, True)] * 10
+    bad = compare_outcomes(
+        ProbeOutcome(probe_id="s", success=True),
+        ProbeOutcome(probe_id="s", success=True),
+        world=world,
+        stochastic_samples=diverge,
+        dimensions=[ComparisonDimension.SUCCESS],
+        tolerances=ComparisonTolerances(stochastic_min_samples=30, equivalence_margin=0.05),
+    )
+    assert not bad.matched
+    assert bad.verdicts[0].status is VerdictStatus.MISMATCH
 
 
 def test_model_proposal_fixture_replay_and_promotion() -> None:

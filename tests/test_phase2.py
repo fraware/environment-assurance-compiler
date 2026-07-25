@@ -90,11 +90,18 @@ def test_refund_ambiguity_amb_0042() -> None:
     result = mod.reconcile_refund()
     amb = mod.find_amb_0042(result)
     assert amb.status == "open"
-    assert amb.id == "AMB-0042"
+    assert amb.id == mod.CLASSIC_REFUND_RETRY_AMBIGUITY_ID
+    assert amb.id != "AMB-0042"  # production must not hard-code demo id
+    assert "AMB-" in amb.id
     codes = {d.code for d in result.diagnostics.diagnostics}
     assert "EAC2002" in codes
     assert "EAC4027" in codes
-
+    # Conflicted facts are not accepted into authoritative IR.
+    assert all(
+        f.subject.id != "submit_refund" or f.predicate != "retry_behavior"
+        for f in result.accepted_facts
+    )
+    assert any(a.id == amb.id for a in result.unresolved_ambiguities)
 
 def test_apply_decision(tmp_path: Path) -> None:
     mod = _refund_mod()
@@ -111,10 +118,111 @@ def test_apply_decision(tmp_path: Path) -> None:
     )
     assert not applied.diagnostics.has_errors()
     assert applied.decision is not None
+    assert applied.decision.content_digest
+    assert applied.decision.reviewer == "domain_expert"
     updated = next(a for a in applied.ambiguities if a.id == amb.id)
     assert updated.status == "accepted"
     save_decision_under(tmp_path, applied.decision)
     assert list(tmp_path.glob("*.json"))
+
+
+def test_openapi_hardening_ref_params_security_certainty(tmp_path: Path) -> None:
+    spec = tmp_path / "api.yaml"
+    spec.write_text(
+        """
+openapi: "3.0.3"
+info: {title: Demo, version: "1.0.0"}
+security:
+  - bearerAuth: []
+paths:
+  /items/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: get_item
+      callbacks:
+        onEvent:
+          "{$request.body#/url}":
+            post:
+              responses:
+                "200": {description: ok}
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Item"
+        "504":
+          description: gateway timeout
+components:
+  parameters:
+    ItemId:
+      name: id
+      in: path
+      required: true
+      schema: {type: string}
+  schemas:
+    Item:
+      type: object
+      properties:
+        id: {type: string}
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+""".strip(),
+        encoding="utf-8",
+    )
+    from envassure.sources.openapi import OpenAPIAdapter
+
+    result = OpenAPIAdapter().parse_detailed(spec)
+    facts = result.facts
+    assert any(f.predicate == "http_parameters" for f in facts)
+    assert any(f.predicate == "http_response_content" for f in facts)
+    assert any(f.predicate == "auth_hint" for f in facts)
+    timeout = next(f for f in facts if f.predicate == "timeout_behavior")
+    assert timeout.confidence.derivation_class == "inferred"
+    assert timeout.confidence.extractor_certainty in {"medium", "low"}
+    direct = next(f for f in facts if f.predicate == "http_method")
+    assert direct.confidence.derivation_class == "direct"
+    assert direct.confidence.extractor_certainty == "high"
+    assert any(d.code == "EAC1006" for d in result.diagnostics.diagnostics)
+    certainties = {f.confidence.extractor_certainty for f in facts}
+    assert certainties != {"high"}
+
+
+def test_reconcile_no_amb_0042_hardcode() -> None:
+    from envassure.reconciliation import ambiguity_id, reconcile
+
+    facts = [
+        SemanticFact(
+            fact_id="a",
+            subject=EntityRef(kind="action", id="submit_refund"),
+            predicate="retry_behavior",
+            value="retry",
+            source_refs=["sop"],
+            extraction_method="t",
+            confidence=ConfidenceRecord(evidence_class="approved_procedure"),
+        ),
+        SemanticFact(
+            fact_id="b",
+            subject=EntityRef(kind="action", id="submit_refund"),
+            predicate="retry_behavior",
+            value="do_not_retry",
+            source_refs=["api"],
+            extraction_method="t",
+            confidence=ConfidenceRecord(evidence_class="api_contract"),
+        ),
+    ]
+    result = reconcile(facts)
+    expected = ambiguity_id("action:submit_refund", "retry_behavior", "conflict")
+    conflict = next(a for a in result.ambiguities if a.conflict_class == "semantic_conflict")
+    assert conflict.id == expected
+    assert conflict.id != "AMB-0042"
+    assert not any(a.id == "AMB-0042" for a in result.ambiguities)
+    assert result.accepted_facts == []
+    assert result.unresolved_ambiguities
 
 
 def test_precedence_orders_candidates() -> None:
