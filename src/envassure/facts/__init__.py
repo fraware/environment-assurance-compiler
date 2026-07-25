@@ -5,6 +5,7 @@ from __future__ import annotations
 from envassure.facts.models import (
     ConfidenceRecord,
     ConflictStatus,
+    DerivationClass,
     EvidenceClass,
     ExtractorCertainty,
     FactStatus,
@@ -18,6 +19,7 @@ from envassure.facts.store import FactStore, FactStoreDocument
 __all__ = [
     "ConfidenceRecord",
     "ConflictStatus",
+    "DerivationClass",
     "EvidenceClass",
     "ExtractorCertainty",
     "FactStatus",
