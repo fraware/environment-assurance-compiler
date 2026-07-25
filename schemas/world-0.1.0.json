@@ -1,0 +1,1477 @@
+{
+  "$defs": {
+    "ActionContract": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "default": "1",
+          "title": "Version",
+          "type": "string"
+        },
+        "actor_classes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Actor Classes",
+          "type": "array"
+        },
+        "input_schema": {
+          "additionalProperties": true,
+          "title": "Input Schema",
+          "type": "object"
+        },
+        "preconditions": {
+          "items": {
+            "$ref": "#/$defs/ConstraintExpr"
+          },
+          "title": "Preconditions",
+          "type": "array"
+        },
+        "authorization": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authorization"
+        },
+        "reads": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reads",
+          "type": "array"
+        },
+        "writes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Writes",
+          "type": "array"
+        },
+        "intended_effects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Intended Effects",
+          "type": "array"
+        },
+        "external_side_effects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "External Side Effects",
+          "type": "array"
+        },
+        "resource_effects": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Resource Effects",
+          "type": "array"
+        },
+        "evidence_emitted": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Evidence Emitted",
+          "type": "array"
+        },
+        "success_outcomes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Success Outcomes",
+          "type": "array"
+        },
+        "failure_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Failure Ids",
+          "type": "array"
+        },
+        "timeout_behavior": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeout Behavior"
+        },
+        "retry_behavior": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retry Behavior"
+        },
+        "idempotency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotency"
+        },
+        "transaction_boundary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Transaction Boundary"
+        },
+        "compensation_action": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Compensation Action"
+        },
+        "concurrency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Concurrency"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        },
+        "unsupported_semantics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Semantics",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "ActionContract",
+      "type": "object"
+    },
+    "ActorDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "actor_class": {
+          "title": "Actor Class",
+          "type": "string"
+        },
+        "identity_model": {
+          "default": "named",
+          "title": "Identity Model",
+          "type": "string"
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Roles",
+          "type": "array"
+        },
+        "capabilities": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "credentials": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Credentials",
+          "type": "array"
+        },
+        "authority_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Authority Source"
+        },
+        "delegation_rules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Delegation Rules",
+          "type": "array"
+        },
+        "revocation_rules": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Revocation Rules",
+          "type": "array"
+        },
+        "observation_projection_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observation Projection Id"
+        },
+        "available_actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Available Actions",
+          "type": "array"
+        },
+        "lifecycle": {
+          "default": "episode",
+          "title": "Lifecycle",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        }
+      },
+      "required": [
+        "id",
+        "actor_class"
+      ],
+      "title": "ActorDefinition",
+      "type": "object"
+    },
+    "AmbiguityRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "subject": {
+          "title": "Subject",
+          "type": "string"
+        },
+        "source_excerpts": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Excerpts",
+          "type": "array"
+        },
+        "conflict_class": {
+          "title": "Conflict Class",
+          "type": "string"
+        },
+        "candidate_interpretations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Candidate Interpretations",
+          "type": "array"
+        },
+        "default_prohibition": {
+          "title": "Default Prohibition",
+          "type": "string"
+        },
+        "affected_actions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Actions",
+          "type": "array"
+        },
+        "affected_tasks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Tasks",
+          "type": "array"
+        },
+        "affected_verifiers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Verifiers",
+          "type": "array"
+        },
+        "affected_analyses": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Analyses",
+          "type": "array"
+        },
+        "operational_consequence": {
+          "title": "Operational Consequence",
+          "type": "string"
+        },
+        "required_expert_role": {
+          "title": "Required Expert Role",
+          "type": "string"
+        },
+        "status": {
+          "default": "open",
+          "enum": [
+            "open",
+            "accepted",
+            "deferred",
+            "rejected"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "decision_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision Id"
+        },
+        "residual_uncertainty": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Residual Uncertainty"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        }
+      },
+      "required": [
+        "id",
+        "subject",
+        "conflict_class",
+        "default_prohibition",
+        "operational_consequence",
+        "required_expert_role"
+      ],
+      "title": "AmbiguityRecord",
+      "type": "object"
+    },
+    "ConstraintExpr": {
+      "additionalProperties": false,
+      "description": "Lightweight constraint expression (opaque string + optional structured form).",
+      "properties": {
+        "expression": {
+          "title": "Expression",
+          "type": "string"
+        },
+        "structured": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Structured"
+        }
+      },
+      "required": [
+        "expression"
+      ],
+      "title": "ConstraintExpr",
+      "type": "object"
+    },
+    "EvidenceObligation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "trigger": {
+          "title": "Trigger",
+          "type": "string"
+        },
+        "evidence_class": {
+          "title": "Evidence Class",
+          "type": "string"
+        },
+        "producer": {
+          "title": "Producer",
+          "type": "string"
+        },
+        "consumer": {
+          "title": "Consumer",
+          "type": "string"
+        },
+        "generation_time": {
+          "default": "on_action",
+          "title": "Generation Time",
+          "type": "string"
+        },
+        "integrity": {
+          "default": "hash_chained",
+          "title": "Integrity",
+          "type": "string"
+        },
+        "retention": {
+          "default": "pack_lifetime",
+          "title": "Retention",
+          "type": "string"
+        },
+        "failure_behavior": {
+          "default": "fail_closed",
+          "title": "Failure Behavior",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        }
+      },
+      "required": [
+        "id",
+        "trigger",
+        "evidence_class",
+        "producer",
+        "consumer"
+      ],
+      "title": "EvidenceObligation",
+      "type": "object"
+    },
+    "FailureDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "category": {
+          "enum": [
+            "validation",
+            "authorization",
+            "business_rule",
+            "dependency",
+            "timeout",
+            "partial_commit",
+            "conflict",
+            "rate_limit",
+            "stale_state",
+            "resource_exhaustion",
+            "unknown_external"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "changes_authoritative_state": {
+          "default": false,
+          "title": "Changes Authoritative State",
+          "type": "boolean"
+        },
+        "retryable": {
+          "default": false,
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "exposes_evidence": {
+          "default": true,
+          "title": "Exposes Evidence",
+          "type": "boolean"
+        },
+        "transaction_effect": {
+          "default": "none",
+          "enum": [
+            "none",
+            "abort",
+            "partial",
+            "commit"
+          ],
+          "title": "Transaction Effect",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        }
+      },
+      "required": [
+        "id",
+        "category",
+        "description"
+      ],
+      "title": "FailureDefinition",
+      "type": "object"
+    },
+    "ObservationProjection": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "target_actor_class": {
+          "title": "Target Actor Class",
+          "type": "string"
+        },
+        "visible_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Visible Paths",
+          "type": "array"
+        },
+        "omitted_paths": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Omitted Paths",
+          "type": "array"
+        },
+        "transformations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Transformations",
+          "type": "array"
+        },
+        "aggregation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Aggregation"
+        },
+        "delay": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delay"
+        },
+        "noise": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Noise"
+        },
+        "staleness": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Staleness"
+        },
+        "access_control": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Access Control"
+        },
+        "information_flow_labels": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Information Flow Labels",
+          "type": "array"
+        },
+        "error_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Policy"
+        },
+        "side_channel_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Side Channel Policy"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        }
+      },
+      "required": [
+        "id",
+        "target_actor_class"
+      ],
+      "title": "ObservationProjection",
+      "type": "object"
+    },
+    "ProvenanceRef": {
+      "additionalProperties": false,
+      "description": "Link from an IR element to sources and/or decisions.",
+      "properties": {
+        "source_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Ids",
+          "type": "array"
+        },
+        "decision_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Decision Ids",
+          "type": "array"
+        },
+        "fact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "title": "ProvenanceRef",
+      "type": "object"
+    },
+    "StateVariable": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "scalar",
+            "enum",
+            "record",
+            "list",
+            "set",
+            "map",
+            "graph",
+            "queue",
+            "resource_counter",
+            "timestamp",
+            "duration",
+            "opaque_external_ref"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "constraints": {
+          "items": {
+            "$ref": "#/$defs/ConstraintExpr"
+          },
+          "title": "Constraints",
+          "type": "array"
+        },
+        "owning_aggregate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Owning Aggregate"
+        },
+        "initial_generator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Initial Generator"
+        },
+        "persistence": {
+          "default": "session",
+          "enum": [
+            "ephemeral",
+            "session",
+            "durable"
+          ],
+          "title": "Persistence",
+          "type": "string"
+        },
+        "reset_class": {
+          "default": "reset_on_episode",
+          "enum": [
+            "reset_on_episode",
+            "carry_forward",
+            "external"
+          ],
+          "title": "Reset Class",
+          "type": "string"
+        },
+        "mutation_authority": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Mutation Authority",
+          "type": "array"
+        },
+        "mutability": {
+          "default": "mutable",
+          "enum": [
+            "immutable",
+            "mutable",
+            "append_only"
+          ],
+          "title": "Mutability",
+          "type": "string"
+        },
+        "confidentiality": {
+          "default": "internal",
+          "enum": [
+            "public",
+            "internal",
+            "confidential",
+            "restricted"
+          ],
+          "title": "Confidentiality",
+          "type": "string"
+        },
+        "policy_visible": {
+          "default": true,
+          "title": "Policy Visible",
+          "type": "boolean"
+        },
+        "evaluator_visible": {
+          "default": false,
+          "title": "Evaluator Visible",
+          "type": "boolean"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty"
+        },
+        "derived_expression": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Derived Expression"
+        },
+        "enum_values": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enum Values"
+        },
+        "record_fields": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Record Fields"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type"
+      ],
+      "title": "StateVariable",
+      "type": "object"
+    },
+    "TaskTemplate": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "family": {
+          "title": "Family",
+          "type": "string"
+        },
+        "initial_constraints": {
+          "items": {
+            "$ref": "#/$defs/ConstraintExpr"
+          },
+          "title": "Initial Constraints",
+          "type": "array"
+        },
+        "actor_assignment": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Actor Assignment",
+          "type": "object"
+        },
+        "intent": {
+          "title": "Intent",
+          "type": "string"
+        },
+        "goal_claims": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Goal Claims",
+          "type": "array"
+        },
+        "prohibited_behavior": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Prohibited Behavior",
+          "type": "array"
+        },
+        "process_requirements": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Process Requirements",
+          "type": "array"
+        },
+        "horizon": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Horizon"
+        },
+        "resource_budget": {
+          "additionalProperties": true,
+          "title": "Resource Budget",
+          "type": "object"
+        },
+        "permitted_tools": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Permitted Tools",
+          "type": "array"
+        },
+        "verifier_claim_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Verifier Claim Ids",
+          "type": "array"
+        },
+        "solvability_method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Solvability Method"
+        },
+        "difficulty_factors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Difficulty Factors",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        }
+      },
+      "required": [
+        "id",
+        "family",
+        "intent"
+      ],
+      "title": "TaskTemplate",
+      "type": "object"
+    },
+    "TransitionBranch": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "probability": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Probability"
+        },
+        "probability_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Probability Source"
+        },
+        "events": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "side_effect_intents": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Side Effect Intents",
+          "type": "array"
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observation"
+        },
+        "terminal": {
+          "default": false,
+          "title": "Terminal",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "TransitionBranch",
+      "type": "object"
+    },
+    "TransitionRule": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "action_id": {
+          "title": "Action Id",
+          "type": "string"
+        },
+        "guard": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ConstraintExpr"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "priority": {
+          "default": 0,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "conflict_semantics": {
+          "default": "priority",
+          "title": "Conflict Semantics",
+          "type": "string"
+        },
+        "kind": {
+          "default": "deterministic",
+          "enum": [
+            "deterministic",
+            "stochastic"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "branches": {
+          "items": {
+            "$ref": "#/$defs/TransitionBranch"
+          },
+          "title": "Branches",
+          "type": "array"
+        },
+        "emitted_evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Emitted Evidence",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        },
+        "unsupported_assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Assumptions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "action_id"
+      ],
+      "title": "TransitionRule",
+      "type": "object"
+    },
+    "VerifierClaim": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "statement": {
+          "title": "Statement",
+          "type": "string"
+        },
+        "required_evidence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Evidence",
+          "type": "array"
+        },
+        "mechanism": {
+          "default": "predicate",
+          "enum": [
+            "predicate",
+            "execution",
+            "temporal",
+            "authority",
+            "solver",
+            "model_judged"
+          ],
+          "title": "Mechanism",
+          "type": "string"
+        },
+        "decision_rule": {
+          "title": "Decision Rule",
+          "type": "string"
+        },
+        "abstention_conditions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Abstention Conditions",
+          "type": "array"
+        },
+        "assumptions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Assumptions",
+          "type": "array"
+        },
+        "applicability": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Applicability"
+        },
+        "false_positive_risks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "False Positive Risks",
+          "type": "array"
+        },
+        "status": {
+          "default": "candidate",
+          "enum": [
+            "draft",
+            "tested",
+            "differentially_validated",
+            "qualified_external",
+            "deprecated",
+            "candidate"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/ProvenanceRef"
+        }
+      },
+      "required": [
+        "id",
+        "statement",
+        "decision_rule"
+      ],
+      "title": "VerifierClaim",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Top-level Environment Assurance IR document.",
+  "properties": {
+    "ir_version": {
+      "default": "0.1.0",
+      "title": "Ir Version",
+      "type": "string"
+    },
+    "environment_id": {
+      "title": "Environment Id",
+      "type": "string"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "version": {
+      "default": "0.1.0",
+      "title": "Version",
+      "type": "string"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "domain": {
+      "default": "generic",
+      "title": "Domain",
+      "type": "string"
+    },
+    "task_families": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Task Families",
+      "type": "array"
+    },
+    "semantic_sources": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Semantic Sources",
+      "type": "array"
+    },
+    "state_model_version": {
+      "default": "1",
+      "title": "State Model Version",
+      "type": "string"
+    },
+    "clock_model": {
+      "default": "discrete_steps",
+      "title": "Clock Model",
+      "type": "string"
+    },
+    "stochasticity_model": {
+      "default": "none",
+      "title": "Stochasticity Model",
+      "type": "string"
+    },
+    "reset_semantics": {
+      "default": "full_reset",
+      "title": "Reset Semantics",
+      "type": "string"
+    },
+    "termination_semantics": {
+      "default": "goal_or_horizon",
+      "title": "Termination Semantics",
+      "type": "string"
+    },
+    "truncation_semantics": {
+      "default": "horizon",
+      "title": "Truncation Semantics",
+      "type": "string"
+    },
+    "concurrency_model": {
+      "default": "single_actor",
+      "title": "Concurrency Model",
+      "type": "string"
+    },
+    "transaction_model": {
+      "default": "none",
+      "title": "Transaction Model",
+      "type": "string"
+    },
+    "external_dependencies": {
+      "items": {
+        "type": "string"
+      },
+      "title": "External Dependencies",
+      "type": "array"
+    },
+    "confidentiality_boundaries": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Confidentiality Boundaries",
+      "type": "array"
+    },
+    "declared_fidelity_level": {
+      "default": "EF-0",
+      "title": "Declared Fidelity Level",
+      "type": "string"
+    },
+    "known_unsupported_behavior": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Known Unsupported Behavior",
+      "type": "array"
+    },
+    "permissible_uses": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Permissible Uses",
+      "type": "array"
+    },
+    "determinism": {
+      "default": "fully_deterministic",
+      "enum": [
+        "fully_deterministic",
+        "seeded_recorded_externals",
+        "statistical",
+        "externally_nondeterministic"
+      ],
+      "title": "Determinism",
+      "type": "string"
+    },
+    "state": {
+      "items": {
+        "$ref": "#/$defs/StateVariable"
+      },
+      "title": "State",
+      "type": "array"
+    },
+    "actors": {
+      "items": {
+        "$ref": "#/$defs/ActorDefinition"
+      },
+      "title": "Actors",
+      "type": "array"
+    },
+    "observations": {
+      "items": {
+        "$ref": "#/$defs/ObservationProjection"
+      },
+      "title": "Observations",
+      "type": "array"
+    },
+    "actions": {
+      "items": {
+        "$ref": "#/$defs/ActionContract"
+      },
+      "title": "Actions",
+      "type": "array"
+    },
+    "failures": {
+      "items": {
+        "$ref": "#/$defs/FailureDefinition"
+      },
+      "title": "Failures",
+      "type": "array"
+    },
+    "transitions": {
+      "items": {
+        "$ref": "#/$defs/TransitionRule"
+      },
+      "title": "Transitions",
+      "type": "array"
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/TaskTemplate"
+      },
+      "title": "Tasks",
+      "type": "array"
+    },
+    "verifiers": {
+      "items": {
+        "$ref": "#/$defs/VerifierClaim"
+      },
+      "title": "Verifiers",
+      "type": "array"
+    },
+    "evidence_obligations": {
+      "items": {
+        "$ref": "#/$defs/EvidenceObligation"
+      },
+      "title": "Evidence Obligations",
+      "type": "array"
+    },
+    "ambiguities": {
+      "items": {
+        "$ref": "#/$defs/AmbiguityRecord"
+      },
+      "title": "Ambiguities",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/ProvenanceRef"
+    }
+  },
+  "required": [
+    "environment_id",
+    "name"
+  ],
+  "title": "WorldDefinition",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://envassure.dev/schemas/world-0.1.0.json"
+}
