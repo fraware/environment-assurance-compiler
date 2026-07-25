@@ -1,4 +1,4 @@
-"""EvidenceObligation helpers."""
+"""EvidenceObligation helpers and proof-obligation compiler (EAC-R14)."""
 
 from __future__ import annotations
 
@@ -6,6 +6,43 @@ from envassure.diagnostics.factory import make_diagnostic
 from envassure.diagnostics.models import DiagnosticReport
 from envassure.ir.models import EvidenceObligation, WorldDefinition
 from envassure.ir.primitives import ProvenanceRef
+from envassure.obligations.generators import (
+    compile_proof_obligations,
+    generate_authorization_preservation,
+    generate_deterministic_reset_replay,
+    generate_observation_separation,
+    generate_resource_conservation,
+    generate_reward_trace_binding,
+    proof_obligation_pack_members,
+    validate_proof_obligations,
+)
+from envassure.obligations.ir import (
+    ClaimKind,
+    MechanismStrength,
+    ObligationStatus,
+    ProofObligation,
+    ProofObligationBundle,
+)
+
+__all__ = [
+    "ClaimKind",
+    "MechanismStrength",
+    "ObligationStatus",
+    "ProofObligation",
+    "ProofObligationBundle",
+    "compile_proof_obligations",
+    "ensure_action_evidence",
+    "generate_authorization_preservation",
+    "generate_deterministic_reset_replay",
+    "generate_observation_separation",
+    "generate_resource_conservation",
+    "generate_reward_trace_binding",
+    "make_obligation",
+    "obligations_for_action",
+    "proof_obligation_pack_members",
+    "validate_obligations",
+    "validate_proof_obligations",
+]
 
 
 def make_obligation(
@@ -112,4 +149,7 @@ def validate_obligations(world: WorldDefinition) -> DiagnosticReport:
                     subject=obl.id,
                 )
             )
+    # Also compile and validate proof-obligation bundle (non-blocking notes via same report).
+    bundle = compile_proof_obligations(world)
+    report.extend(validate_proof_obligations(bundle, world=world).diagnostics)
     return report
