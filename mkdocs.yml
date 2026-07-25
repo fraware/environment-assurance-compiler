@@ -1,0 +1,60 @@
+site_name: EnvAssure
+site_description: Environment Assurance Compiler documentation
+site_url: https://fraware.github.io/environment-assurance-compiler/
+repo_url: https://github.com/fraware/environment-assurance-compiler
+repo_name: fraware/environment-assurance-compiler
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.suggest
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Concepts:
+      - Sources and facts: concepts/sources-and-facts.md
+      - Environment IR: concepts/environment-ir.md
+      - Ambiguities and decisions: concepts/ambiguities-and-decisions.md
+      - Runtime and snapshots: concepts/runtime-and-snapshots.md
+      - Validation and fidelity: concepts/validation-and-fidelity.md
+  - Guides:
+      - Build from OpenAPI: guides/build-from-openapi.md
+      - Build from traces: guides/build-from-traces.md
+      - Add authorization: guides/add-authorization.md
+      - Add stochastic transitions: guides/add-stochastic-transitions.md
+      - Differentially validate: guides/differentially-validate.md
+      - Package and publish: guides/package-and-publish.md
+  - Reference:
+      - Python SDK: reference/python-sdk.md
+      - CLI: reference/cli.md
+      - Schemas: reference/schemas.md
+      - Diagnostics: reference/diagnostics.md
+      - Exit codes: reference/exit-codes.md
+      - Plugin API: reference/plugin-api.md
+  - Security:
+      - Threat model: security/threat-model.md
+  - Research:
+      - Methodology: research/methodology.md
+      - Benchmarks: research/benchmarks.md
+      - Limitations: research/limitations.md
+  - Compatibility: compatibility.md
+  - Contributing: contributing.md
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.details
+
+plugins:
+  - search
+
+strict: true
