@@ -18,6 +18,7 @@ from envassure.ir.models import (
 )
 from envassure.ir.primitives import IR_VERSION, ProvenanceRef
 from envassure.ir.schema import export_schemas, world_json_schema
+from envassure.ir.validate import ReleaseProfile, validate_world
 
 __all__ = [
     "IR_VERSION",
@@ -28,6 +29,7 @@ __all__ = [
     "FailureDefinition",
     "ObservationProjection",
     "ProvenanceRef",
+    "ReleaseProfile",
     "StateVariable",
     "TaskTemplate",
     "TransitionRule",
@@ -36,5 +38,6 @@ __all__ = [
     "export_schemas",
     "load_world",
     "save_world",
+    "validate_world",
     "world_json_schema",
 ]
