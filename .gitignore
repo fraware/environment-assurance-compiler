@@ -1,0 +1,94 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Packaging / eggs
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env/
+.virtualenv/
+
+# Test / type / coverage / property testing
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.hypothesis/
+.tox/
+.nox/
+.cache/
+pytestdebug.log
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# EnvAssure local state and generated packs
+.eac/
+.eac-local/
+*.eap
+
+# Secrets and local env
+.env
+.env.*
+!.env.example
+credentials.json
+secrets.*
+*.pem
+*.key
+
+# Temporary / agent scratch
+_spec_*.md
+_tmp_ws/
+_tmp_*/
+tmp/
+temp/
+*.tmp
+*.bak
+
+# MkDocs build output
+site/
+
+# uv / pip lock noise (project may choose to commit later)
+uv.lock
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Profiling / logs
+*.log
+.profile
