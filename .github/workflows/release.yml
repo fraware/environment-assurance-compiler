@@ -1,0 +1,115 @@
+# Release supply-chain: build distributions, CycloneDX SBOM, Sigstore-style
+# build provenance attestations (GitHub OIDC).
+#
+# Blocking on release / manual dispatch. Verify artifacts per
+# docs/security/supply-chain.md.
+
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      upload_release_assets:
+        description: "Upload dist + SBOM to the latest published GitHub Release (if any)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-sbom-attest:
+    name: build / SBOM / attest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+          ls -la dist
+
+      - name: Generate CycloneDX SBOM (installed package + runtime deps)
+        run: |
+          python -m pip install --upgrade pip cyclonedx-bom
+          python -m venv /tmp/eac-sbom
+          /tmp/eac-sbom/bin/pip install --upgrade pip
+          /tmp/eac-sbom/bin/pip install dist/*.whl
+          /tmp/eac-sbom/bin/pip install cyclonedx-bom
+          /tmp/eac-sbom/bin/cyclonedx-py environment /tmp/eac-sbom/bin/python \
+            -o dist/envassure.cdx.json \
+            --of JSON \
+            --pyproject pyproject.toml \
+            --mc-type library
+          /tmp/eac-sbom/bin/cyclonedx-py environment /tmp/eac-sbom/bin/python \
+            -o dist/envassure.cdx.xml \
+            --of XML \
+            --pyproject pyproject.toml \
+            --mc-type library
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("dist/envassure.cdx.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          assert data.get("bomFormat") == "CycloneDX", list(data.keys())
+          print(f"SBOM ok: {path} components={len(data.get('components') or [])}")
+          PY
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: envassure-dist-sbom
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/envassure.cdx.json
+            dist/envassure.cdx.xml
+          if-no-files-found: error
+
+      - name: Attest build provenance (wheels + sdist + SBOM)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/envassure.cdx.json
+            dist/envassure.cdx.xml
+
+      - name: Upload assets to GitHub Release
+        if: >
+          github.event_name == 'release' ||
+          (github.event_name == 'workflow_dispatch' && inputs.upload_release_assets)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.release.tag_name }}"
+          if [ -z "${tag}" ]; then
+            tag="$(gh release list --limit 1 --json tagName --jq '.[0].tagName')"
+          fi
+          if [ -z "${tag}" ] || [ "${tag}" = "null" ]; then
+            echo "No release tag available to attach assets; skipping upload."
+            exit 0
+          fi
+          gh release upload "${tag}" \
+            dist/*.whl \
+            dist/*.tar.gz \
+            dist/envassure.cdx.json \
+            dist/envassure.cdx.xml \
+            --clobber
