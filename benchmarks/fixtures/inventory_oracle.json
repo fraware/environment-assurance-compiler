@@ -1,0 +1,23 @@
+{
+  "oracle_id": "inventory-hidden-v1",
+  "environment_id": "inventory.v1",
+  "episodes": [
+    {
+      "episode_id": "reserve-ok",
+      "action_id": "reserve",
+      "oracle": {"success": true, "state": {"on_hand": 4}, "failure": null},
+      "candidate": {"success": true, "state": {"on_hand": 4}, "failure": null},
+      "solvable": true,
+      "leaked_paths": []
+    },
+    {
+      "episode_id": "reserve-stockout",
+      "action_id": "reserve",
+      "oracle": {"success": false, "failure": "stockout", "state": {"on_hand": 0}},
+      "candidate": {"success": false, "failure": "stockout", "state": {"on_hand": 0}},
+      "solvable": false,
+      "leaked_paths": []
+    }
+  ],
+  "metadata": {"family": "hidden_reference", "stochastic": true}
+}

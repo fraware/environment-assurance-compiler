@@ -1,0 +1,32 @@
+{
+  "oracle_id": "auth-hidden-v1",
+  "environment_id": "auth.v1",
+  "episodes": [
+    {
+      "episode_id": "approve-ok",
+      "action_id": "approve",
+      "oracle": {"success": true, "authorized": true, "failure": null},
+      "candidate": {"success": true, "authorized": true, "failure": null},
+      "solvable": true,
+      "leaked_paths": []
+    },
+    {
+      "episode_id": "approve-denied",
+      "action_id": "approve",
+      "oracle": {"success": false, "authorized": false, "failure": "forbidden"},
+      "candidate": {"success": false, "authorized": false, "failure": "forbidden"},
+      "solvable": true,
+      "leaked_paths": []
+    },
+    {
+      "episode_id": "role-leak",
+      "action_id": "observe",
+      "oracle": {"success": true, "observation": {"status": "pending"}},
+      "candidate": {"success": true, "observation": {"status": "pending", "approver_id": "u-9"}},
+      "solvable": true,
+      "leaked_paths": ["approver_id"],
+      "metadata": {"verify_false_positive": true}
+    }
+  ],
+  "metadata": {"family": "hidden_reference"}
+}

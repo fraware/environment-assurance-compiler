@@ -1,0 +1,32 @@
+{
+  "oracle_id": "counter-hidden-v1",
+  "environment_id": "counter.v1",
+  "episodes": [
+    {
+      "episode_id": "inc-ok",
+      "action_id": "increment",
+      "oracle": {"success": true, "state": {"value": 1}, "failure": null},
+      "candidate": {"success": true, "state": {"value": 1}, "failure": null},
+      "solvable": true,
+      "leaked_paths": []
+    },
+    {
+      "episode_id": "inc-auth-mismatch",
+      "action_id": "increment",
+      "oracle": {"success": false, "authorized": false, "failure": "unauthorized"},
+      "candidate": {"success": true, "authorized": true, "failure": null},
+      "solvable": false,
+      "leaked_paths": []
+    },
+    {
+      "episode_id": "obs-leak",
+      "action_id": "read",
+      "oracle": {"success": true, "observation": {"value": 1}},
+      "candidate": {"success": true, "observation": {"value": 1, "secret": "x"}},
+      "solvable": true,
+      "leaked_paths": ["secret"],
+      "metadata": {"verify_false_positive": false}
+    }
+  ],
+  "metadata": {"family": "hidden_reference"}
+}
