@@ -1,0 +1,23 @@
+{
+  "probe_id": "fixture-ce-1",
+  "action_id": "submit_refund",
+  "failing_dimensions": ["retry", "failure"],
+  "dimension_details": [
+    {"dimension": "retry", "matched": false, "detail": "reference retries once; candidate never"},
+    {"dimension": "failure", "matched": false, "detail": "failure codes diverge"}
+  ],
+  "minimized_sequence": ["submit_refund"],
+  "original_sequence": ["lookup", "submit_refund", "confirm"],
+  "reference_outcome": {
+    "success": false,
+    "failure": "timeout",
+    "retry": "retry_once"
+  },
+  "candidate_outcome": {
+    "success": false,
+    "failure": "unavailable",
+    "retry": "none"
+  },
+  "preserved_failure": true,
+  "notes": "Stable CEGR intake fixture (independent of differential engine)."
+}
