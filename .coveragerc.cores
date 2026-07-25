@@ -1,0 +1,18 @@
+# Path-scoped coverage for semantic / library cores (excludes CLI surface,
+# optional framework adapters, and tasks helpers that dilute the overall %).
+# Used by CI after the full suite. Semantic correctness cores are gated
+# separately at ≥90% via `.coveragerc.semantic`.
+
+[run]
+branch = true
+source = envassure
+
+[report]
+show_missing = true
+skip_covered = false
+fail_under = 80
+omit =
+    */envassure/cli/*
+    */envassure/tasks/*
+    */envassure/runtime/adapters/*
+    */envassure/runtime/codegen.py

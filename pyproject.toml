@@ -27,6 +27,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
 dependencies = [
@@ -165,3 +166,13 @@ source = ["envassure"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+# Overall floor (~78% measured 2026-07-25). Path-scoped gates:
+# .coveragerc.cores (80), .coveragerc.assurance (80),
+# .coveragerc.semantic (90) — see docs/research/release-readiness-0.2.md
+# and docs/security/supply-chain.md.
+fail_under = 75
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+]

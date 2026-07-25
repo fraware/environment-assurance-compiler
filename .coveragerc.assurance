@@ -1,0 +1,21 @@
+# Higher gate for assurance-artifact packages that already sit near ≥80%.
+# Security-critical decision branches (auth fail-closed, differential
+# indeterminate-not-match, observe empty-on-deny) are enforced primarily via
+# dedicated unit tests rather than 100% branch coverage.
+
+[run]
+branch = true
+source = envassure
+
+[report]
+show_missing = true
+skip_covered = false
+fail_under = 80
+include =
+    */envassure/ir/*
+    */envassure/packaging/*
+    */envassure/workspace/*
+    */envassure/diagnostics/*
+    */envassure/facts/*
+    */envassure/reports/*
+    */envassure/differential/compare.py
