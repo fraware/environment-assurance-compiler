@@ -81,7 +81,8 @@ for a in result.ambiguities:
 PY
 ```
 
-Open ambiguities (for example `AMB-0042` in the packaged demo) block
+Open ambiguities (hashed classic refund retry id; historical `AMB-0042` is a
+fixture alias in packaged demo docs only) block
 release-grade packs until an expert decision is recorded with `eac decide`.
 
 ## 4. Build IR from the manual SDK world

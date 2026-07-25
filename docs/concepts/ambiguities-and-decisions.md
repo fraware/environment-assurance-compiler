@@ -13,7 +13,9 @@ guessing.
 4. IR / packs may claim release grade only after required ambiguities are closed.
 
 The refund example (`examples/refund/`) intentionally conflicts OpenAPI, SOP,
-and trace evidence around HTTP 504 retry (demo id `AMB-0042` in packaged flows).
+and trace evidence around HTTP 504 retry. Production reconcile emits a stable
+hashed ambiguity id; the packaged demo keeps historical label `AMB-0042` as a
+fixture alias only (`examples/refund/world.py`).
 
 ## Commands
 

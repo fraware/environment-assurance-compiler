@@ -10,3 +10,5 @@ Related:
 - [Security policy](https://github.com/fraware/environment-assurance-compiler/blob/main/SECURITY.md)
 - [Diagnostics catalog](reference/diagnostics.md)
 - [Compatibility](compatibility.md)
+- [Release readiness 0.2](research/release-readiness-0.2.md)
+- [Report an environment defect](guides/report-environment-defect.md)

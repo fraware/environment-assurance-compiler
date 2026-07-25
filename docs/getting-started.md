@@ -2,7 +2,7 @@
 
 ## Install
 
-Requires Python **3.11** or **3.12**.
+Requires Python **3.11**, **3.12**, or **3.13**.
 
 ```bash
 pip install -e ".[dev]"
@@ -11,6 +11,8 @@ eac --version
 
 Optional extras (`gym`, `pettingzoo`, `postgres`, `model-assisted`, `docs`) are
 documented in the repository README. Missing extras fail closed with `EAC9003`.
+
+Prefer the timed walkthrough: [Ten-minute tutorial](guides/ten-minute-tutorial.md).
 
 ## Create a workspace
 
@@ -64,10 +66,14 @@ Notes:
   `eac migrate` (never silent on verify/lint).
 - Packs are untrusted until verified — see the
   [threat model](security/threat-model.md).
+- Successful package/verify is not a fidelity certificate — see
+  [Fidelity claims](guides/fidelity-claims.md).
 
 ## Next reading
 
+- [Ten-minute tutorial](guides/ten-minute-tutorial.md)
 - [Sources and facts](concepts/sources-and-facts.md)
 - [Environment IR](concepts/environment-ir.md)
 - Guides under [guides/](guides/build-from-openapi.md)
 - [CLI reference](reference/cli.md)
+- [Report an environment defect](guides/report-environment-defect.md)

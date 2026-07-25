@@ -78,6 +78,10 @@ eac verify-pack counter.eap
 
 Consumers should run `eac verify-pack` before loading IR from the archive.
 
+For compiler package releases (wheels / sdist), see
+[supply chain](../security/supply-chain.md) for CycloneDX SBOM assets and
+GitHub build-provenance verification (`gh attestation verify`).
+
 ## Checklist
 
 | Step | Command | Fail closed on |

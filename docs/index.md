@@ -15,11 +15,13 @@ see [Validation and fidelity](concepts/validation-and-fidelity.md).
 | Section | Contents |
 | ------- | -------- |
 | [Getting started](getting-started.md) | Install, workspace, first build |
+| [Ten-minute tutorial](guides/ten-minute-tutorial.md) | Counter example end-to-end |
 | Concepts | Sources, IR, ambiguities, runtime, fidelity |
-| Guides | Runnable end-to-end workflows |
+| Guides | Workflows, fidelity claims, author stubs, defect reporting |
 | Reference | SDK, CLI, schemas, diagnostics, exit codes, plugins |
-| [Security](security/threat-model.md) | Threat model |
-| Research | Methodology, benchmarks, limitations |
+| [Security](security/threat-model.md) | Threat model; [supply chain](security/supply-chain.md) |
+| Research | Methodology, benchmarks, limitations, [0.2 release readiness](research/release-readiness-0.2.md) |
+| [Compatibility](compatibility.md) | Contracts, deprecation, cadence |
 | [Contributing](contributing.md) | Contribution entry |
 
 Repository: [fraware/environment-assurance-compiler](https://github.com/fraware/environment-assurance-compiler)  

@@ -52,3 +52,9 @@ Entry-point group for proposal providers (separate from filesystem plugins):
 - Treat plugin code as executable supply-chain risk.
 - Prefer allowlists + pinned digests over open discovery in release CI.
 - See the [threat model](../security/threat-model.md).
+
+## Author guides
+
+- [Author plugins](../guides/author-plugins.md)
+- [Author a source adapter](../guides/author-source-adapter.md)
+- [Author a runtime extension](../guides/author-runtime-extension.md)

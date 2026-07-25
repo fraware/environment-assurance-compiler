@@ -39,3 +39,34 @@ Verification (`eac verify-pack`, lint, load) never silently migrates IR or packs
 - **alpha** — APIs may break without notice between minors.
 - **beta** — IR and pack formats stabilize; breaking changes documented.
 - **stable** — Full compatibility policy in force.
+
+## Deprecation policy
+
+1. **Announce** — Document the deprecation in this file and in the repository
+   [CHANGELOG.md](https://github.com/fraware/environment-assurance-compiler/blob/main/CHANGELOG.md)
+   under *Deprecated* for the release that introduces the warning or dual-read
+   path.
+2. **Dual support window** — Keep the old path readable for at least the
+   **last two stable IR minors** (or one package minor on alpha) unless a
+   security issue forces earlier removal.
+3. **Migrate path** — Prefer explicit `eac migrate` / documented transforms over
+   silent rewrite on lint, load, or `verify-pack`.
+4. **Remove** — Removal is a breaking change: bump the relevant contract
+   identifier (package major when stable; IR minor with migrate; plugin API
+   major for plugin breaks) and list removals under *Removed* in the changelog.
+5. **Diagnostics** — Prefer stable `EAC####` codes when emitting deprecation
+   warnings so automation can gate on them.
+
+Current deprecations:
+
+| Surface | Status | Replacement |
+| ------- | ------ | ----------- |
+| Top-level IR field `profile` | Removed after rename in IR 0.2.0 migrate | `assurance_profile` |
+
+## Release cadence
+
+See the *Release cadence* note in
+[CHANGELOG.md](https://github.com/fraware/environment-assurance-compiler/blob/main/CHANGELOG.md).
+Pre-alpha (`0.1.0a0` → `0.2.0rc`) prioritizes remediation milestones over
+calendar trains; after the first stable channel, expect documented minor trains
+with changelog-gated deprecations as above.

@@ -17,6 +17,7 @@ theme:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Ten-minute tutorial: guides/ten-minute-tutorial.md
   - Concepts:
       - Sources and facts: concepts/sources-and-facts.md
       - Environment IR: concepts/environment-ir.md
@@ -30,6 +31,11 @@ nav:
       - Add stochastic transitions: guides/add-stochastic-transitions.md
       - Differentially validate: guides/differentially-validate.md
       - Package and publish: guides/package-and-publish.md
+      - Fidelity claims: guides/fidelity-claims.md
+      - Report environment defect: guides/report-environment-defect.md
+      - Author plugins: guides/author-plugins.md
+      - Author a source adapter: guides/author-source-adapter.md
+      - Author a runtime extension: guides/author-runtime-extension.md
   - Reference:
       - Python SDK: reference/python-sdk.md
       - CLI: reference/cli.md
@@ -39,10 +45,12 @@ nav:
       - Plugin API: reference/plugin-api.md
   - Security:
       - Threat model: security/threat-model.md
+      - Supply chain: security/supply-chain.md
   - Research:
       - Methodology: research/methodology.md
       - Benchmarks: research/benchmarks.md
       - Limitations: research/limitations.md
+      - Release readiness 0.2: research/release-readiness-0.2.md
   - Compatibility: compatibility.md
   - Contributing: contributing.md
 

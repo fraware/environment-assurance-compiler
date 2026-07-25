@@ -27,3 +27,5 @@ EnvAssure deliberately does **not** provide:
   [compatibility policy](../compatibility.md).
 
 See [Validation and fidelity](../concepts/validation-and-fidelity.md).
+Baseline claims for the 0.2 RC track:
+[Release readiness 0.2](release-readiness-0.2.md).
