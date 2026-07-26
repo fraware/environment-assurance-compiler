@@ -963,7 +963,7 @@ def _merge_replay_into_intake(
         DimensionMismatchIntake(
             dimension=dim,
             status=status,
-            matched=status == "match",
+            matched=False,
             detail=f"replay:{replay.phase}",
         )
         for dim, status in replay.dimension_statuses.items()
