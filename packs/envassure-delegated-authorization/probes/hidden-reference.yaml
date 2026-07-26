@@ -1,0 +1,7 @@
+kind: concealed_fixture_oracle
+workflow_id: authorization_heavy
+fixture_path: benchmarks/fixtures/authorization_heavy.json
+hidden_oracle_digest: f8f4cca23463774f8cf41b292c916e4d2c9696abbf328aec09fdf163b3b1b455
+generator: envassure.benchmark.workflows.build_workflow_oracle
+note: Episodes are materialized at evaluation time; answer keys are not the sole public
+  evaluation path.

@@ -1,0 +1,5 @@
+pack_id: envassure-stochastic-operations
+unsupported_uses:
+- unseeded_stochastic_sampling_as_fidelity_claim
+- collapsing_dimension_metrics_into_single_score
+note: Claims that depend on these behaviors must remain indeterminate.

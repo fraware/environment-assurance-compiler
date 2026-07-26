@@ -21,6 +21,9 @@ EvidenceClass = Literal[
     "unknown",
 ]
 
+# How a fact was obtained from its source (orthogonal to EvidenceClass authority).
+DerivationClass = Literal["direct", "observed", "inferred", "expert"]
+
 ExtractorCertainty = Literal["high", "medium", "low", "unknown"]
 ConflictStatus = Literal["none", "conflict", "alias", "unresolved"]
 ReviewerStatus = Literal["unreviewed", "accepted", "rejected", "deferred"]
@@ -33,6 +36,7 @@ class ConfidenceRecord(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     evidence_class: EvidenceClass = "unknown"
+    derivation_class: DerivationClass = "direct"
     extractor_certainty: ExtractorCertainty = "unknown"
     conflict_status: ConflictStatus = "none"
     reviewer_status: ReviewerStatus = "unreviewed"

@@ -17,7 +17,12 @@ def build_auth_world() -> WorldDefinition:
     world.definition.concurrency_model = "multi_actor"
     world.definition.determinism = "fully_deterministic"
 
-    world.state("request_status", type="enum", enum_values=["draft", "pending", "approved", "denied"])
+    world.state(
+        "request_status",
+        type="enum",
+        enum_values=["draft", "pending", "approved", "denied"],
+        initial_generator="draft",
+    )
     world.state("requester_id", type="scalar")
     world.state("approver_id", type="scalar", evaluator_visible=True, policy_visible=False)
 
@@ -46,6 +51,7 @@ def build_auth_world() -> WorldDefinition:
         "approver_view",
         target_actor_class="approver",
         visible_paths=["request_status", "requester_id"],
+        omitted_paths=["approver_id"],
     )
     world.failure(
         "unauthorized",
@@ -57,7 +63,8 @@ def build_auth_world() -> WorldDefinition:
         "submit",
         actor_classes=["requester"],
         writes=["request_status"],
-        intended_effects=["request_status = pending"],
+        # String enum values must be quoted; bare names resolve as state paths (None).
+        intended_effects=['request_status = "pending"'],
         success_outcomes=["ok"],
         provenance=provenance(source_ids=["manual"]),
     )
@@ -66,7 +73,7 @@ def build_auth_world() -> WorldDefinition:
         actor_classes=["approver"],
         authorization="role:approver",
         writes=["request_status"],
-        intended_effects=["request_status = approved"],
+        intended_effects=['request_status = "approved"'],
         failure_ids=["unauthorized"],
         success_outcomes=["ok"],
     )
@@ -75,7 +82,7 @@ def build_auth_world() -> WorldDefinition:
         actor_classes=["approver"],
         authorization="role:approver",
         writes=["request_status"],
-        intended_effects=["request_status = denied"],
+        intended_effects=['request_status = "denied"'],
         failure_ids=["unauthorized"],
         success_outcomes=["ok"],
     )

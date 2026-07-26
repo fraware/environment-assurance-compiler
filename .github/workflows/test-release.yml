@@ -1,0 +1,95 @@
+# Dry-run release path for PRs and main: build, fresh install, package
+# acceptance, checksums + release-manifest. Never publishes.
+
+name: Test release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-smoke:
+    name: build / install / acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build distributions
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+          ls -la dist
+
+      - name: Fresh-venv wheel install + smoke
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/eac-wheel
+          /tmp/eac-wheel/bin/pip install --upgrade pip
+          /tmp/eac-wheel/bin/pip install dist/*.whl
+          /tmp/eac-wheel/bin/eac --version
+          /tmp/eac-wheel/bin/eac --help
+          /tmp/eac-wheel/bin/python scripts/check_package_acceptance.py \
+            --repo-root . \
+            --dist-dir dist
+          /tmp/eac-wheel/bin/eac build-ir --module examples/counter/world.py \
+            -o /tmp/counter-ir.json --force
+          /tmp/eac-wheel/bin/eac lint /tmp/counter-ir.json
+          /tmp/eac-wheel/bin/eac package /tmp/counter-ir.json -o /tmp/counter.eap
+          /tmp/eac-wheel/bin/eac verify-pack /tmp/counter.eap
+
+      - name: Checksums + release-manifest (dry-run tag)
+        run: |
+          set -euo pipefail
+          COMMIT="$(git rev-parse HEAD)"
+          VER="$(python - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path("src/envassure/__init__.py").read_text(encoding="utf-8")
+          m = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', text, re.M)
+          assert m
+          print(m.group(1))
+          PY
+          )"
+          python scripts/write_sha256sums.py dist --out dist/SHA-256SUMS
+          python scripts/generate_release_manifest.py \
+            --dist-dir dist \
+            --tag "v${VER}" \
+            --commit "${COMMIT}" \
+            --docs-version "${VER}" \
+            --out dist/release-manifest.json
+          python scripts/write_sha256sums.py dist --out dist/SHA-256SUMS \
+            --glob '*.whl' --glob '*.tar.gz' --glob '*.cdx.json' --glob '*.cdx.xml' \
+            --glob 'release-manifest.json'
+          python scripts/generate_release_manifest.py \
+            --dist-dir dist \
+            --tag "v${VER}" \
+            --commit "${COMMIT}" \
+            --docs-version "${VER}" \
+            --out dist/release-manifest.json
+          python scripts/check_tag_version.py --allow-untagged
+
+      - name: Upload dry-run artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-release-dist
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/SHA-256SUMS
+            dist/release-manifest.json
+          if-no-files-found: error

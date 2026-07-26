@@ -1,0 +1,12 @@
+{
+  "openenv_pin": "0.4.1",
+  "actor_id": "client",
+  "required_members": [
+    "openenv.yaml",
+    "world.json",
+    "server/environment.py",
+    "Dockerfile",
+    "README.md",
+    "release-manifest.json"
+  ]
+}

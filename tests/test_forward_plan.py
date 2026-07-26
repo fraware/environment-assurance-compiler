@@ -368,13 +368,17 @@ def test_import_merge_refund_decide_cli(tmp_path: Path) -> None:
     # Prefer on-disk file as source of truth after fail-closed reconcile.
     disk = json.loads(amb_path.read_text(encoding="utf-8"))
     records = disk if isinstance(disk, list) else disk.get("ambiguities", disk)
-    assert any(a["id"] == "AMB-0042" for a in records)
+    from envassure.reconciliation import ambiguity_id
+
+    classic_id = ambiguity_id("action:submit_refund", "retry_behavior", "conflict")
+    assert any(a["id"] == classic_id for a in records)
+    assert not any(a["id"] == "AMB-0042" for a in records)
 
     decide = runner.invoke(
         app,
         [
             "decide",
-            "AMB-0042",
+            classic_id,
             "--path",
             str(ws),
             "-i",
@@ -390,4 +394,4 @@ def test_import_merge_refund_decide_cli(tmp_path: Path) -> None:
     amb = runner.invoke(app, ["ambiguities", "--path", str(ws), "--status", "all", "--json"])
     assert amb.exit_code == 0, amb.output
     statuses = {a["id"]: a["status"] for a in json.loads(amb.stdout)["ambiguities"]}
-    assert statuses["AMB-0042"] == "accepted"
+    assert statuses[classic_id] == "accepted"

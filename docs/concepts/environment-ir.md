@@ -49,6 +49,24 @@ IR elements carry provenance links back to sources and decisions. Missing
 provenance is treated as a release-grade defect. Use `eac explain` to walk an
 element to its evidence.
 
+`ProvenanceRef.origin_kind` classifies how the compiled element was obtained
+(orthogonal to fact-layer `DerivationClass`):
+
+| `origin_kind` | Meaning |
+| ------------- | ------- |
+| `source_derived` | Directly projected from source facts (`direct` / `observed`) |
+| `inferred` | Compiler/adapter inference — must not be labeled `source_derived` |
+| `default` | Compiler/SDK default with notes |
+| `unresolved_conflict` | Open ambiguity awaiting a decision |
+| `human_decision` | Expert decision record |
+| `simulator_only` | Differential/simulator stub or known-unsupported behavior |
+| `external_connector` | Live external dependency / connector |
+| `fidelity_evidence` | Fidelity ledger evidence reference only |
+
+Fact-layer `DerivationClass` remains the ingestion truth; IR `origin_kind` is
+the compiled view. Validation rejects tagging inferred facts as
+`source_derived` (`EAC3008`).
+
 ## Related concepts
 
 - [Sources and facts](sources-and-facts.md)

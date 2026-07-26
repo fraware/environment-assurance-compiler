@@ -14,15 +14,26 @@ theme:
     - content.code.copy
     - search.suggest
 
+extra:
+  version:
+    provider: mike
+    default: develop
+
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Ten-minute tutorial: guides/ten-minute-tutorial.md
   - Concepts:
       - Sources and facts: concepts/sources-and-facts.md
       - Environment IR: concepts/environment-ir.md
       - Ambiguities and decisions: concepts/ambiguities-and-decisions.md
       - Runtime and snapshots: concepts/runtime-and-snapshots.md
       - Validation and fidelity: concepts/validation-and-fidelity.md
+  - Integrations:
+      - OpenEnv: integrations/openenv.md
+      - Gymnasium: integrations/gymnasium.md
+      - OPA obligations: integrations/opa.md
+      - Reference-system validation: integrations/reference-system-validation.md
   - Guides:
       - Build from OpenAPI: guides/build-from-openapi.md
       - Build from traces: guides/build-from-traces.md
@@ -30,6 +41,11 @@ nav:
       - Add stochastic transitions: guides/add-stochastic-transitions.md
       - Differentially validate: guides/differentially-validate.md
       - Package and publish: guides/package-and-publish.md
+      - Fidelity claims: guides/fidelity-claims.md
+      - Report environment defect: guides/report-environment-defect.md
+      - Author plugins: guides/author-plugins.md
+      - Author a source adapter: guides/author-source-adapter.md
+      - Author a runtime extension: guides/author-runtime-extension.md
   - Reference:
       - Python SDK: reference/python-sdk.md
       - CLI: reference/cli.md
@@ -37,14 +53,48 @@ nav:
       - Diagnostics: reference/diagnostics.md
       - Exit codes: reference/exit-codes.md
       - Plugin API: reference/plugin-api.md
+  - Packs and reproducibility:
+      - Benchmark packs: packs/benchmark-packs.md
+      - Reproducibility: reproducibility.md
   - Security:
       - Threat model: security/threat-model.md
+      - Supply chain: security/supply-chain.md
   - Research:
       - Methodology: research/methodology.md
       - Benchmarks: research/benchmarks.md
       - Limitations: research/limitations.md
+      - Release readiness 0.2: research/release-readiness-0.2.md
+  - Governance:
+      - Overview: governance/index.md
+      - Benchmark charter: governance/benchmark-charter.md
+      - GitHub Project fields: governance/github-project-fields.md
+  - Community:
+      - Overview: community/index.md
+      - Good-first issues: community/good-first-issues/index.md
+      - GFI-01 Docs link checker: community/good-first-issues/01-docs-link-checker.md
+      - GFI-02 Release-manifest validator: community/good-first-issues/02-release-manifest-validator.md
+      - GFI-03 Gymnasium enum codec tests: community/good-first-issues/03-gymnasium-enum-codec-tests.md
+      - GFI-04 Example-manifest linter: community/good-first-issues/04-example-manifest-linter.md
+      - GFI-05 Plugin-registry schema: community/good-first-issues/05-plugin-registry-schema.md
+      - GFI-06 OPA evidence schema: community/good-first-issues/06-opa-evidence-schema.md
+      - GFI-07 Connector timeout fixture: community/good-first-issues/07-connector-timeout-fixture.md
+      - GFI-08 Shell-completion docs: community/good-first-issues/08-shell-completion-docs.md
+      - GFI-09 Benchmark-card template: community/good-first-issues/09-benchmark-card-template.md
+      - GFI-10 Reproducibility verifier: community/good-first-issues/10-reproducibility-verifier.md
+      - GFI-11 Diagnostic docs generator: community/good-first-issues/11-diagnostic-documentation-generator.md
+      - GFI-12 Windows pack-path regression: community/good-first-issues/12-windows-pack-path-regression.md
+      - Reproduction grant call: community/reproduction-grant-call.md
   - Compatibility: compatibility.md
-  - Contributing: contributing.md
+  - Release notes: release-notes.md
+  - Contributing:
+      - Overview: contributing.md
+      - Development: contributing/development.md
+      - Source adapters: contributing/source-adapters.md
+      - Codegen targets: contributing/codegen-targets.md
+      - Runtime adapters: contributing/runtime-adapters.md
+      - Benchmark packs: contributing/benchmark-packs.md
+      - Defect reports: contributing/defect-reports.md
+      - Release process: contributing/release-process.md
 
 markdown_extensions:
   - admonition

@@ -1,0 +1,22 @@
+openapi: "3.0.3"
+info:
+  title: Conflicting Retry Hint API
+  version: "1.0.0"
+  description: >
+    504 response implies no retry without an idempotency key (contract side of
+    the classic refund conflict).
+paths:
+  /refunds:
+    post:
+      operationId: submit_refund
+      responses:
+        "202":
+          description: Accepted
+        "504":
+          description: Gateway timeout; do not retry without status check
+components:
+  schemas:
+    RefundRequest:
+      type: object
+      properties:
+        order_id: {type: string}

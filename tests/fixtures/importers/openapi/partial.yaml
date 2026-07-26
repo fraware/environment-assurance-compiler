@@ -1,0 +1,17 @@
+openapi: "3.0.3"
+info:
+  title: Partial Refund API
+  version: "0.1.0"
+paths:
+  /refunds:
+    post:
+      operationId: submit_refund
+      responses:
+        "202":
+          description: Accepted
+components:
+  schemas:
+    RefundRequest:
+      type: object
+      properties:
+        order_id: {type: string}

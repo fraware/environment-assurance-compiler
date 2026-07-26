@@ -1,0 +1,8 @@
+{
+  "environment_id": "gymnasium.edge.v1",
+  "actor_id": "agent",
+  "seed": 0,
+  "initial_n": 0,
+  "action_space": "Dict",
+  "check_env": true
+}

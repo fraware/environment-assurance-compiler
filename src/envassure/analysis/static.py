@@ -11,12 +11,18 @@ from envassure.diagnostics.factory import make_diagnostic
 from envassure.diagnostics.models import Diagnostic, DiagnosticReport
 from envassure.ir.models import (
     ActionContract,
-    ActorDefinition,
     TaskTemplate,
     WorldDefinition,
 )
-
-_ROLE_AUTH_RE = re.compile(r"^(?:role:|authz:|capability:)?(.+)$", re.IGNORECASE)
+from envassure.runtime.authorization import (
+    actor_discharges as _actor_discharges,
+)
+from envassure.runtime.authorization import (
+    delegation_targets as _delegation_targets,
+)
+from envassure.runtime.authorization import (
+    normalize_auth_token as _normalize_auth_token,
+)
 
 
 @dataclass(slots=True)
@@ -624,47 +630,6 @@ def _check_reset_integrity(world: WorldDefinition, report: DiagnosticReport) -> 
                     subject=var.id,
                 )
             )
-
-
-def _normalize_auth_token(token: str) -> str:
-    match = _ROLE_AUTH_RE.match(token.strip())
-    return (match.group(1) if match else token).strip().lower()
-
-
-def _delegation_targets(rule: str) -> list[str]:
-    """
-    Parse delegation_rules of the form:
-    ``delegates:role:approver``, ``via:role:X``, ``grant:capability:Y``.
-    """
-    rule_l = rule.strip().lower()
-    for prefix in ("delegates:", "delegate:", "via:", "grant:", "from:", "to:"):
-        if rule_l.startswith(prefix):
-            return [_normalize_auth_token(rule[len(prefix) :])]
-    if "->" in rule:
-        return [_normalize_auth_token(part) for part in rule.split("->")]
-    return [_normalize_auth_token(rule)]
-
-
-def _actor_discharges(auth: str, actor: ActorDefinition) -> bool:
-    """Return True when *actor* can discharge *auth* via authority/role/capability."""
-    needle = _normalize_auth_token(auth)
-    for rev in actor.revocation_rules:
-        if _normalize_auth_token(rev) == needle:
-            return False
-    candidates: list[str] = []
-    if actor.authority_source:
-        candidates.append(actor.authority_source)
-    candidates.extend(actor.roles)
-    candidates.extend(actor.capabilities)
-    candidates.extend(actor.credentials)
-    for rule in actor.delegation_rules:
-        candidates.extend(_delegation_targets(rule))
-    for cand in candidates:
-        if _normalize_auth_token(cand) == needle:
-            return True
-        if cand.strip().lower() == auth.strip().lower():
-            return True
-    return False
 
 
 def _check_authority_delegation(world: WorldDefinition, report: DiagnosticReport) -> None:

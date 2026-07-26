@@ -1,0 +1,7 @@
+kind: concealed_fixture_oracle
+workflow_id: transactional_enterprise
+fixture_path: benchmarks/fixtures/transactional_enterprise.json
+hidden_oracle_digest: de35098a6adb1c28860e9b56ff040a3f8b49fd240ae4a46365094e42d8bef8e8
+generator: envassure.benchmark.workflows.build_workflow_oracle
+note: Episodes are materialized at evaluation time; answer keys are not the sole public
+  evaluation path.

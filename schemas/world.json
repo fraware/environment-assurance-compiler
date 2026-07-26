@@ -715,6 +715,28 @@
           "title": "Fact Ids",
           "type": "array"
         },
+        "origin_kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "source_derived",
+                "inferred",
+                "default",
+                "unresolved_conflict",
+                "human_decision",
+                "simulator_only",
+                "external_connector",
+                "fidelity_evidence"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Origin Kind"
+        },
         "notes": {
           "anyOf": [
             {

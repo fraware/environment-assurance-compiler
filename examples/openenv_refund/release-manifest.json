@@ -1,0 +1,9 @@
+{
+  "schema_version": "1",
+  "kind": "openenv_export",
+  "environment_id": "counter.v1",
+  "openenv_pin": "0.4.1",
+  "actor_id": "client",
+  "status": "experimental",
+  "image": "ghcr.io/fraware/envassure-openenv:<version>"
+}

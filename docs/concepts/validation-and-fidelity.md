@@ -31,5 +31,6 @@ by a leaderboard.
 
 Prefer recorded fixtures and file-backed simulators in CI. Network and subprocess
 connectors are opt-in and do not by themselves prove fidelity. See
-[Differentially validate](../guides/differentially-validate.md) and
+[Differentially validate](../guides/differentially-validate.md),
+[Fidelity claims](../guides/fidelity-claims.md), and
 [Limitations](../research/limitations.md).

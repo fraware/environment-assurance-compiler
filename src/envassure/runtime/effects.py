@@ -2,120 +2,114 @@
 
 from __future__ import annotations
 
-import ast
-import re
 from typing import Any
 
-_INCREMENT = re.compile(r"^\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\+=\s*(?P<value>.+?)\s*$")
-_DECREMENT = re.compile(r"^\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*-=\s*(?P<value>.+?)\s*$")
-_ASSIGN = re.compile(r"^\s*(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?P<value>.+?)\s*$")
+from envassure.expressions.diagnostics import ExpressionError
+from envassure.expressions.evaluate import EvalContext, evaluate, evaluate_bool
+from envassure.expressions.parser import (
+    coerce_literal,
+    parse_effect,
+    parse_expression,
+    parse_structured,
+)
+from envassure.expressions.types import infer_type
+from envassure.expressions.validate import validate_expression
+from envassure.ir.primitives import ConstraintExpr
 
 
-def coerce_literal(raw: str) -> Any:
-    """Parse a simple literal / identifier used in IR generators and effects."""
-    text = raw.strip()
-    if not text:
-        return None
+def apply_effect(
+    state: dict[str, Any],
+    expression: str,
+    *,
+    actor: dict[str, Any] | None = None,
+    payload: dict[str, Any] | None = None,
+    context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Apply one intended_effect string; return the write map for the event.
+
+    Raises ``ValueError`` / ``ExpressionError`` on unsupported semantics (fail closed).
+    """
     try:
-        return ast.literal_eval(text)
-    except (SyntaxError, ValueError):
-        pass
-    if text.lower() == "true":
-        return True
-    if text.lower() == "false":
-        return False
-    if text.lower() == "null" or text.lower() == "none":
-        return None
-    return text
-
-
-def apply_effect(state: dict[str, Any], expression: str) -> dict[str, Any]:
-    """Apply one intended_effect string; return the write map for the event."""
-    writes: dict[str, Any] = {}
-    m = _INCREMENT.match(expression)
-    if m:
-        name = m.group("name")
-        delta = coerce_literal(m.group("value"))
-        current = state.get(name, 0)
-        if not isinstance(current, int | float) or not isinstance(delta, int | float):
-            raise ValueError(f"cannot apply increment {expression!r} to {current!r}")
-        new_value = current + delta
+        name, op, rhs = parse_effect(expression)
+        infer_type(rhs)
+        ctx = EvalContext(
+            state=state,
+            actor=actor or {},
+            payload=payload or {},
+            context=context or {},
+        )
+        value = evaluate(rhs, ctx)
+        if op == "+=":
+            current = state.get(name, 0)
+            if not isinstance(current, int | float) or isinstance(current, bool):
+                raise ValueError(f"cannot apply increment {expression!r} to {current!r}")
+            if not isinstance(value, int | float) or isinstance(value, bool):
+                raise ValueError(f"increment delta must be numeric, got {value!r}")
+            new_value: Any = current + value
+        elif op == "-=":
+            current = state.get(name, 0)
+            if not isinstance(current, int | float) or isinstance(current, bool):
+                raise ValueError(f"cannot apply decrement {expression!r} to {current!r}")
+            if not isinstance(value, int | float) or isinstance(value, bool):
+                raise ValueError(f"decrement delta must be numeric, got {value!r}")
+            new_value = current - value
+        else:
+            new_value = value
         state[name] = new_value
-        writes[name] = new_value
-        return writes
-    m = _DECREMENT.match(expression)
-    if m:
-        name = m.group("name")
-        delta = coerce_literal(m.group("value"))
-        current = state.get(name, 0)
-        if not isinstance(current, int | float) or not isinstance(delta, int | float):
-            raise ValueError(f"cannot apply decrement {expression!r} to {current!r}")
-        new_value = current - delta
-        state[name] = new_value
-        writes[name] = new_value
-        return writes
-    m = _ASSIGN.match(expression)
-    if m:
-        name = m.group("name")
-        value = coerce_literal(m.group("value"))
-        state[name] = value
-        writes[name] = value
-        return writes
-    raise ValueError(f"unsupported intended_effect expression: {expression!r}")
+        return {name: new_value}
+    except ExpressionError as exc:
+        raise ValueError(str(exc)) from exc
 
 
-def evaluate_constraint(expression: str, *, state: dict[str, Any], actor: dict[str, Any]) -> bool:
-    """Evaluate a tiny subset of constraint expressions used in reference packs."""
-    text = expression.strip()
-    # Equality: name == value
-    eq = re.match(
-        r"^(?P<lhs>[A-Za-z_][A-Za-z0-9_\.]*)\s*==\s*(?P<rhs>.+)$",
-        text,
-    )
-    if eq:
-        lhs = _resolve_path(eq.group("lhs"), state=state, actor=actor)
-        rhs = coerce_literal(eq.group("rhs"))
-        return bool(lhs == rhs)
-    # Inequality: name >= value / > / <= / <
-    cmp_m = re.match(
-        r"^(?P<lhs>[A-Za-z_][A-Za-z0-9_\.]*)\s*(?P<op>>=|<=|>|<)\s*(?P<rhs>.+)$",
-        text,
-    )
-    if cmp_m:
-        lhs = _resolve_path(cmp_m.group("lhs"), state=state, actor=actor)
-        rhs = coerce_literal(cmp_m.group("rhs"))
-        op = cmp_m.group("op")
-        if not isinstance(lhs, int | float) or not isinstance(rhs, int | float):
-            return False
-        if op == ">=":
-            return lhs >= rhs
-        if op == "<=":
-            return lhs <= rhs
-        if op == ">":
-            return lhs > rhs
-        return lhs < rhs
-    # Membership: actor.roles contains X
-    contains = re.match(
-        r"^(?P<lhs>[A-Za-z_][A-Za-z0-9_\.]*)\s+contains\s+(?P<rhs>.+)$",
-        text,
-    )
-    if contains:
-        lhs = _resolve_path(contains.group("lhs"), state=state, actor=actor)
-        rhs = coerce_literal(contains.group("rhs"))
-        if isinstance(lhs, list | tuple | set):
-            return rhs in lhs
-        return False
-    # Bare truthy path
-    return bool(_resolve_path(text, state=state, actor=actor))
+def evaluate_constraint(
+    expression: str | ConstraintExpr,
+    *,
+    state: dict[str, Any],
+    actor: dict[str, Any],
+    payload: dict[str, Any] | None = None,
+    context: dict[str, Any] | None = None,
+) -> bool:
+    """Evaluate a constraint; unsupported forms raise (caller maps to unsupported_semantics).
+
+    Never silently treats parse failures as False.
+    """
+    structured: dict[str, Any] | None = None
+    text: str
+    if isinstance(expression, ConstraintExpr):
+        text = expression.expression
+        structured = expression.structured
+    else:
+        text = expression
+
+    try:
+        if structured:
+            expr, diags = validate_expression(structured=structured)
+            if expr is None:
+                raise ExpressionError(
+                    diags[0].message if diags else "invalid structured expression",
+                    code="EAC_EXPR_UNSUPPORTED",
+                    expression=text,
+                )
+        else:
+            expr = parse_expression(text)
+            infer_type(expr)
+        ctx = EvalContext(
+            state=state,
+            actor=actor,
+            payload=payload or {},
+            context=context or {},
+        )
+        return evaluate_bool(expr, ctx)
+    except ExpressionError:
+        raise
+    except ValueError as exc:
+        raise ExpressionError(str(exc), code="EAC_EXPR_UNSUPPORTED", expression=text) from exc
 
 
-def _resolve_path(path: str, *, state: dict[str, Any], actor: dict[str, Any]) -> Any:
-    if path.startswith("state."):
-        return state.get(path[len("state.") :])
-    if path.startswith("actor."):
-        return actor.get(path[len("actor.") :])
-    if path in state:
-        return state[path]
-    if path in actor:
-        return actor[path]
-    return None
+__all__ = [
+    "apply_effect",
+    "coerce_literal",
+    "evaluate_constraint",
+    "parse_expression",
+    "parse_structured",
+]

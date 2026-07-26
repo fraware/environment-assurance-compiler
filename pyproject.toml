@@ -20,6 +20,9 @@ keywords = [
   "simulation",
 ]
 classifiers = [
+  # Stay on Pre-Alpha for 0.2.0.dev* builds. Switch to
+  # "Development Status :: 4 - Beta" only on the v0.2.0b1 tag commit
+  # (see docs/contributing/release-process.md).
   "Development Status :: 2 - Pre-Alpha",
   "Intended Audience :: Developers",
   "Intended Audience :: Science/Research",
@@ -27,6 +30,7 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Typing :: Typed",
 ]
 dependencies = [
@@ -41,12 +45,17 @@ dependencies = [
 
 [project.optional-dependencies]
 gym = ["gymnasium>=0.29"]
-pettingzoo = ["pettingzoo>=1.24"]
+pettingzoo = ["pettingzoo>=1.24", "gymnasium>=0.29"]
 model-assisted = ["httpx>=0.27,<1"]
 postgres = ["psycopg[binary]>=3.1,<4"]
+# System OPA binary required for evaluate/test; not vendored into the wheel.
+opa = []
+# Exact pin after Milestone C spike (huggingface/OpenEnv → openenv 0.4.1).
+openenv = ["openenv==0.4.1", "gymnasium>=0.29"]
 docs = [
   "mkdocs-material>=9.5",
   "mkdocstrings[python]>=0.25",
+  "mike>=2.1",
 ]
 dev = [
   "pytest>=8.2",
@@ -87,12 +96,20 @@ include = [
   "/README.md",
   "/CHANGELOG.md",
   "/mkdocs.yml",
+  "/scripts",
+  "/Dockerfile",
+  "/Dockerfile.openenv",
+  "/docker",
 ]
+
+# Ship published JSON schemas inside the wheel for offline consumers / acceptance.
+[tool.hatch.build.targets.wheel.force-include]
+"schemas" = "envassure/schemas"
 
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "scripts"]
 
 [tool.ruff.lint]
 select = [
@@ -133,6 +150,8 @@ module = [
   "psycopg.*",
   "httpx",
   "httpx.*",
+  "openenv",
+  "openenv.*",
 ]
 ignore_missing_imports = true
 
@@ -145,7 +164,9 @@ module = [
   "envassure.differential.compare",
   "envassure.differential.probes",
   "envassure.cli.commands.diffval_cmds",
+  "envassure.runtime.adapters.gymnasium_env",
   "envassure.runtime.adapters.pettingzoo_env",
+  "envassure.runtime.adapters.openenv_service",
   "envassure.tasks",
   "envassure.verifiers",
   "envassure.analysis.mutation",
@@ -157,6 +178,13 @@ minversion = "8.0"
 testpaths = ["tests"]
 addopts = ["-ra", "--strict-markers", "--strict-config"]
 filterwarnings = ["error"]
+markers = [
+  "gym: requires envassure[gym] (gymnasium)",
+  "pettingzoo: requires envassure[pettingzoo]",
+  "openenv: requires envassure[openenv]",
+  "opa: requires system OPA binary and/or envassure[opa]",
+  "compose: requires Docker Compose (set ENVASURE_RUN_COMPOSE=1)",
+]
 
 [tool.coverage.run]
 branch = true
@@ -165,3 +193,13 @@ source = ["envassure"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+# Overall floor (~78% measured 2026-07-25). Path-scoped gates:
+# .coveragerc.cores (80), .coveragerc.assurance (80),
+# .coveragerc.semantic (90) — see docs/research/release-readiness-0.2.md
+# and docs/security/supply-chain.md.
+fail_under = 75
+exclude_lines = [
+  "pragma: no cover",
+  "raise NotImplementedError",
+  "if TYPE_CHECKING:",
+]

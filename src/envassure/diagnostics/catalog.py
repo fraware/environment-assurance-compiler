@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
@@ -19,6 +21,7 @@ class DiagnosticDefinition:
     documentation: str
     consequence: str | None = None
     suggested_repair: str | None = None
+    claim_impact_template: str | None = None
 
 
 def _def(
@@ -30,6 +33,7 @@ def _def(
     *,
     consequence: str | None = None,
     suggested_repair: str | None = None,
+    claim_impact_template: str | None = None,
 ) -> DiagnosticDefinition:
     return DiagnosticDefinition(
         code=code,
@@ -39,6 +43,7 @@ def _def(
         documentation=documentation,
         consequence=consequence,
         suggested_repair=suggested_repair,
+        claim_impact_template=claim_impact_template,
     )
 
 
@@ -66,6 +71,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Raised when a SourceArtifact fails schema or authority vocabulary checks.",
         consequence="The source cannot be ingested or locked.",
         suggested_repair="Fix sources.yml / SourceArtifact fields and re-run import.",
+        claim_impact_template="Source-backed fidelity claims for `{source_id}` are unavailable until the artifact validates.",
     ),
     "EAC1002": _def(
         "EAC1002",
@@ -75,6 +81,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Authority must be one of the controlled vocabulary values.",
         consequence="Source is rejected.",
         suggested_repair="Use a documented authority class (e.g. api_contract).",
+        claim_impact_template="Authority-class claims cannot be asserted for sources with unrecognized `{authority}`.",
     ),
     "EAC1003": _def(
         "EAC1003",
@@ -84,6 +91,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Informational warning when a source is marked incomplete or unknown.",
         consequence="Downstream facts may be partial.",
         suggested_repair="Update completeness when additional evidence is available.",
+        claim_impact_template="Completeness-dependent claims over `{source_id}` remain partial (`{completeness}`).",
     ),
     "EAC1004": _def(
         "EAC1004",
@@ -93,6 +101,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "A source adapter could not parse the artifact (syntax, schema, or unsupported form).",
         consequence="No facts are emitted from this source; import fails closed.",
         suggested_repair="Fix the source artifact or choose the correct adapter kind.",
+        claim_impact_template="No source-derived claims may be made from `{path}` after a parse failure.",
     ),
     "EAC1005": _def(
         "EAC1005",
@@ -102,6 +111,26 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "import_source was called with a kind that has no registered adapter.",
         consequence="Import aborted.",
         suggested_repair="Use one of: openapi, database, policy, procedure, traces.",
+        claim_impact_template="Import claims for adapter kind `{kind}` are unsupported.",
+    ),
+    "EAC1006": _def(
+        "EAC1006",
+        Severity.WARNING,
+        "Unsupported source feature `{feature}` on `{subject}`: {reason}",
+        "EAC1xxx",
+        "A source adapter detected a construct outside its supported matrix.",
+        consequence=(
+            "Facts for the supported subset are still emitted; unsupported "
+            "constructs are not projected into authoritative semantics."
+        ),
+        suggested_repair=(
+            "Simplify the construct, supply complementary sources, or record "
+            "an expert decision for the unsupported semantics."
+        ),
+        claim_impact_template=(
+            "Authoritative claims about `{feature}` on `{subject}` are weakened; "
+            "treat coverage as partial until decided or simplified."
+        ),
     ),
     # --- EAC2xxx semantic conflicts ---
     "EAC2001": _def(
@@ -112,6 +141,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "An AmbiguityRecord is still open; release builds should fail, development may warn.",
         consequence="Release-grade packs are blocked until decided.",
         suggested_repair="Run `eac decide` and record an expert decision.",
+        claim_impact_template="Release fidelity claims covering `{ambiguity_id}` are blocked while the ambiguity is open.",
     ),
     "EAC2002": _def(
         "EAC2002",
@@ -121,6 +151,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Reconciliation detected conflicting facts that require an expert decision.",
         consequence="IR projection is incomplete for the conflicting subject.",
         suggested_repair="Inspect ambiguities and record a decision.",
+        claim_impact_template="Source-derived claims for `{subject}` are suspended until the conflict is decided.",
     ),
     "EAC2003": _def(
         "EAC2003",
@@ -130,6 +161,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Multiple subject identifiers appear to name the same entity.",
         consequence="Downstream IR may duplicate or miss bindings until aliases are resolved.",
         suggested_repair="Record a decision consolidating aliases, or add an alias fact.",
+        claim_impact_template="Identity claims for `{subject}` remain ambiguous until aliases are consolidated.",
     ),
     "EAC2004": _def(
         "EAC2004",
@@ -139,6 +171,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "A decision was applied to an ambiguity that does not exist or is not open.",
         consequence="Decision is rejected; ambiguity state unchanged.",
         suggested_repair="List open ambiguities and choose a valid ambiguity id.",
+        claim_impact_template="Decision-backed claims for `{ambiguity_id}` were not recorded.",
     ),
     # --- EAC3xxx IR validation ---
     "EAC3001": _def(
@@ -149,6 +182,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Top-level WorldDefinition failed basic integrity checks.",
         consequence="IR cannot be compiled.",
         suggested_repair="Fix the world metadata and re-validate.",
+        claim_impact_template="World-level structural validity claims fail closed.",
     ),
     "EAC3002": _def(
         "EAC3002",
@@ -158,6 +192,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "An IR element references an unknown id.",
         consequence="Static analysis and codegen are unsafe.",
         suggested_repair="Add the missing element or fix the reference.",
+        claim_impact_template="Referential integrity claims for the cited IR element are invalid.",
     ),
     "EAC3003": _def(
         "EAC3003",
@@ -167,6 +202,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Two IR elements share the same id within a collection.",
         consequence="Indexes and digests are ambiguous.",
         suggested_repair="Rename one of the colliding identifiers.",
+        claim_impact_template="Identity/digest claims are ambiguous while duplicate ids remain.",
     ),
     "EAC3004": _def(
         "EAC3004",
@@ -176,6 +212,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "IR document version is outside the supported read window for this compiler.",
         consequence="Load/migrate fails closed; verify never silently rewrites IR.",
         suggested_repair="Run `eac migrate` with a compiler that supports this version, or regenerate IR.",
+        claim_impact_template="Version-compatibility claims for IR `{version}` fail closed.",
     ),
     "EAC3005": _def(
         "EAC3005",
@@ -185,6 +222,7 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Explicit migrate completed as a no-op (already current) or wrote an upgraded document.",
         consequence="No silent rewrite occurred outside `eac migrate`.",
         suggested_repair="Re-run lint/analyze after a non-trivial migration.",
+        claim_impact_template=None,
     ),
     "EAC3006": _def(
         "EAC3006",
@@ -194,6 +232,27 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "An explicit cross-minor transform could not be applied or produced an invalid document path.",
         consequence="No IR rewrite is written; caller must fix the source document or upgrade the compiler.",
         suggested_repair="Inspect the document against the 0.1.0→0.2.0 delta and re-run `eac migrate`.",
+        claim_impact_template="Migrated-IR claims for `{from_version}`→`{to_version}` are unavailable.",
+    ),
+    "EAC3007": _def(
+        "EAC3007",
+        Severity.ERROR,
+        "Release readiness gate failed ({profile}): {reason}",
+        "EAC3xxx",
+        "Validation pipeline v2 rejected the world under the selected release profile.",
+        consequence="Lint/pack gates fail closed; the IR must not be treated as release-ready.",
+        suggested_repair="Resolve blocking diagnostics or choose a weaker profile for authoring only.",
+        claim_impact_template="Release-profile claims under `{profile}` fail closed.",
+    ),
+    "EAC3008": _def(
+        "EAC3008",
+        Severity.ERROR,
+        "Provenance origin_kind conflict on `{subject}`: {reason}",
+        "EAC3xxx",
+        "An IR element's provenance.origin_kind is incompatible with linked fact derivation (e.g. inferred tagged source_derived).",
+        consequence="IR cannot be treated as source-derived for the affected element.",
+        suggested_repair="Retag provenance.origin_kind to match derivation_class, or record a human decision.",
+        claim_impact_template="Source-derived fidelity claims for `{subject}` are invalid under the stated origin conflict.",
     ),
     # --- EAC4xxx state/transition ---
     "EAC4001": _def(
@@ -307,6 +366,10 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Observation projections reference invalid state or leak evaluator paths.",
         consequence="Partial observability guarantees are invalid.",
         suggested_repair="Fix visible_paths or observation bindings.",
+        claim_impact_template=(
+            "Partial-observability and information-flow claims fail closed until "
+            "observation projections are repaired ({reason})."
+        ),
     ),
     "EAC5002": _def(
         "EAC5002",
@@ -318,6 +381,10 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "via a policy-facing observation projection.",
         consequence="Agents may observe hidden-oracle state; verifiers and tasks are tainted.",
         suggested_repair="Remove the path from visible_paths or mark the state policy_visible.",
+        claim_impact_template=(
+            "Policy-facing observation claims for `{observation_id}` are invalid while "
+            "evaluator-only state `{state_id}` remains visible."
+        ),
     ),
     "EAC5003": _def(
         "EAC5003",
@@ -328,6 +395,47 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "state visibility/confidentiality declarations.",
         consequence="Partial-observability claims are inconsistent with declared mappings.",
         suggested_repair="Align visible_paths, omitted_paths, labels, and access_control.",
+        claim_impact_template=(
+            "Declared information-flow claims are weakened until mappings agree ({reason})."
+        ),
+    ),
+    "EAC5004": _def(
+        "EAC5004",
+        Severity.ERROR,
+        "Unsupported observation semantic: {reason}",
+        "EAC5xxx",
+        "An ObservationProjection declares delay, noise, staleness, side-channel, "
+        "aggregation, transformation, or related semantics that the runtime cannot execute.",
+        consequence=(
+            "Executable/release profiles reject the IR; runtime observe() never "
+            "silently ignores unsupported fields."
+        ),
+        suggested_repair=(
+            "Remove the unsupported field, replace with a supported form, or mark "
+            "the behavior in known_unsupported_behavior and use a non-executable profile."
+        ),
+        claim_impact_template=(
+            "Executable observation claims fail closed for unsupported semantics ({reason})."
+        ),
+    ),
+    "EAC5005": _def(
+        "EAC5005",
+        Severity.ERROR,
+        "Observation projection missing or unsafe: {reason}",
+        "EAC5xxx",
+        "An actor lacks a bound observation projection, references an unknown "
+        "projection, or would otherwise observe unrestricted authoritative state.",
+        consequence=(
+            "Fail-closed observe() returns an empty projection; release gates block "
+            "full-state leakage."
+        ),
+        suggested_repair=(
+            "Bind every policy actor to a declared ObservationProjection with an "
+            "explicit visible_paths allow-list."
+        ),
+        claim_impact_template=(
+            "Actor observation claims fail closed until projections are bound safely ({reason})."
+        ),
     ),
     # --- EAC6xxx tasks/verifiers ---
     "EAC6001": _def(
@@ -366,6 +474,9 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Reference connector comparison found a dimension mismatch.",
         consequence="Pack cannot claim differential validation.",
         suggested_repair="Inspect the counterexample and refine IR or connector tolerances.",
+        claim_impact_template=(
+            "Differential validation claims fail closed until the mismatch is resolved ({reason})."
+        ),
     ),
     "EAC7002": _def(
         "EAC7002",
@@ -402,6 +513,39 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Counterexample-guided reconciliation produced ambiguities and optional corrections.",
         consequence="Open ambiguities block release-grade differential claims until decided.",
         suggested_repair="Review generation under validation/refinements/ and run eac decide.",
+    ),
+    "EAC7006": _def(
+        "EAC7006",
+        Severity.WARNING,
+        "Differential dimension indeterminate: {reason}",
+        "EAC7xxx",
+        "A required comparison dimension lacks evidence or is underpowered.",
+        consequence=(
+            "Overall differential pass is blocked; missing or underpowered "
+            "evidence is never treated as a match."
+        ),
+        suggested_repair=(
+            "Supply the missing dimension evidence, increase sample size, or "
+            "declare the dimension not applicable for the probe."
+        ),
+    ),
+    "EAC7007": _def(
+        "EAC7007",
+        Severity.NOTE,
+        "CEGR closed on evidence: {reason}",
+        "EAC7xxx",
+        "CEGR v2 closed a refinement generation only after replay evidence matched.",
+        consequence="Generation is immutable; residual expert decisions remain auditable.",
+        suggested_repair="Verify accepted_facts and pack claims cite this generation digest.",
+    ),
+    "EAC7008": _def(
+        "EAC7008",
+        Severity.WARNING,
+        "CEGR remains open: {reason}",
+        "EAC7xxx",
+        "CEGR v2 did not close; indeterminate or mismatched evidence blocks closure.",
+        consequence="Release IR must not absorb preferred_facts; expert decide() required.",
+        suggested_repair="Replay both systems, resolve ambiguities, or mark unsupported semantics.",
     ),
     "EAC8007": _def(
         "EAC8007",
@@ -475,6 +619,10 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         "Environment Pack checksums, schema, or secret scan failed.",
         consequence="Pack must not be trusted or published.",
         suggested_repair="Rebuild the pack after fixing the reported issue.",
+        claim_impact_template=(
+            "Pack-backed fidelity and distribution claims fail closed until verification "
+            "succeeds ({reason})."
+        ),
     ),
     # --- EAC9xxx toolchain / CLI ---
     "EAC9001": _def(
@@ -531,6 +679,25 @@ DIAGNOSTIC_CATALOG: dict[str, DiagnosticDefinition] = {
         consequence="Plugin features are unavailable.",
         suggested_repair="Update the plugin lock or allowlist.",
     ),
+    "EAC9007": _def(
+        "EAC9007",
+        Severity.ERROR,
+        "Runtime replay/assurance failure: {reason}",
+        "EAC9xxx",
+        "CLI replay detected digest divergence, event-log gaps/duplicates, or a restore "
+        "path that failed reconstruct equality.",
+        consequence=(
+            "Deterministic replay and snapshot-restore claims fail closed; the process "
+            "exits non-zero."
+        ),
+        suggested_repair=(
+            "Inspect event-log sequence continuity, re-snapshot with the current runtime, "
+            "and re-run with identical seeds/actions."
+        ),
+        claim_impact_template=(
+            "Deterministic reset/replay and snapshot-restore claims fail closed ({reason})."
+        ),
+    ),
 }
 
 
@@ -558,3 +725,29 @@ def family_of(code: str) -> str:
     if len(code) != 7 or not code.startswith("EAC"):
         raise ValueError(f"Invalid diagnostic code: {code}")
     return f"EAC{code[3]}xxx"
+
+
+def catalog_semantic_fingerprint() -> str:
+    """Stable SHA-256 over catalog semantics (code reuse / silent drift guard).
+
+    Changing severity, summary template, documentation, consequence,
+    suggested_repair, or claim_impact_template for an existing code changes this
+    digest and must be an intentional catalog revision (see diagnostics.md).
+    """
+    rows: list[dict[str, str | None]] = []
+    for code in sorted(DIAGNOSTIC_CATALOG):
+        definition = DIAGNOSTIC_CATALOG[code]
+        rows.append(
+            {
+                "code": definition.code,
+                "severity": definition.severity.value,
+                "summary_template": definition.summary_template,
+                "family": definition.family,
+                "documentation": definition.documentation,
+                "consequence": definition.consequence,
+                "suggested_repair": definition.suggested_repair,
+                "claim_impact_template": definition.claim_impact_template,
+            }
+        )
+    payload = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()

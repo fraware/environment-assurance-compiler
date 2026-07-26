@@ -1,0 +1,15 @@
+{
+  "generator": "transactional_enterprise",
+  "oracle_id": "transactional_enterprise-hidden-v1",
+  "environment_id": "bench.tx.enterprise.v1",
+  "curated_count": 100,
+  "generated_count": 100,
+  "seed": 0,
+  "hidden_oracle_digest": "de35098a6adb1c28860e9b56ff040a3f8b49fd240ae4a46365094e42d8bef8e8",
+  "family": "hidden_reference",
+  "concealed": true,
+  "episodes": [],
+  "metadata": {
+    "note": "Episodes materialized by envassure.benchmark.workflows.build_workflow_oracle; digest pins concealed oracle."
+  }
+}

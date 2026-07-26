@@ -1,0 +1,12 @@
+roles:
+  - agent
+permissions:
+  - role: agent
+    action: submit_refund
+    effect: allow
+    # Adapter does not project OPA/Rego; this is an unsupported extension field
+    # that still parses as YAML but is outside the supported policy matrix.
+    rego_module: |
+      package refund
+      default allow = false
+unsupported_engine: opa

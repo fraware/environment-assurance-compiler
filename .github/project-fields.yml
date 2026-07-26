@@ -1,0 +1,68 @@
+# GitHub Project field contract for EnvAssure roadmap tracking.
+# Ops creates the board in GitHub UI/API; this file is the checked-in template.
+# See docs/governance/github-project-fields.md for human-readable rules.
+#
+# Funding / payment fields are intentionally absent.
+
+version: 1
+project:
+  name: EnvAssure roadmap
+  visibility: public
+  description: >
+    Engineering roadmap (Now/Next/Research/Later/Declined). Not a funding or
+    grant-operations board.
+
+fields:
+  - name: Roadmap bucket
+    data_type: single_select
+    options: [Now, Next, Research, Later, Declined]
+  - name: Problem
+    data_type: text
+  - name: Intended claim
+    data_type: text
+  - name: Deliverable
+    data_type: text
+  - name: Owner
+    data_type: text
+  - name: Dependencies
+    data_type: text
+  - name: Acceptance test
+    data_type: text
+  - name: Compatibility impact
+    data_type: single_select
+    options: [none, docs-only, cli, ir, plugin-api, pack-format, breaking]
+  - name: Status
+    data_type: single_select
+    options: [proposed, accepted, in_progress, blocked, done, declined]
+  - name: Milestone train
+    data_type: single_select
+    options: [A-release, B-docs, C-integrations, D-research, E-community, post-beta]
+  - name: Area
+    data_type: single_select
+    options: [docs, runtime, packaging, integrations, benchmarks, security, governance]
+  - name: Target version
+    data_type: text
+
+views:
+  - name: Board by Status
+    layout: board
+    group_by: Status
+  - name: Roadmap table
+    layout: table
+    group_by: Roadmap bucket
+  - name: Beta gate
+    layout: table
+    filter: Milestone train:A-release,B-docs,C-integrations,D-research,E-community
+  - name: Declined archive
+    layout: table
+    filter: "Roadmap bucket:Declined"
+
+issue_body_headings:
+  - Problem
+  - Intended claim
+  - Deliverable
+  - Owner
+  - Dependencies
+  - Acceptance test
+  - Compatibility impact
+  - Status

@@ -10,7 +10,11 @@ from envassure.runtime.effects import coerce_literal
 
 
 def generate_runtime_module(world: WorldDefinition) -> str:
-    """Return source for a standalone module that applies deterministic writes."""
+    """Return source for a standalone module that applies event-derived writes.
+
+    Transitions stage intended_effects into a write map, then commit by applying
+    those writes (matching EventSourcedEnvironment event-sourced apply).
+    """
     initial: dict[str, object] = {}
     for var in world.state:
         if var.initial_generator is not None:
@@ -43,7 +47,8 @@ def generate_runtime_module(world: WorldDefinition) -> str:
         f'''\
         """Generated EnvAssure runtime for {world.environment_id}.
 
-        Deterministic transitions apply intended_effects writes.
+        Event-derived deterministic apply: intended_effects produce writes,
+        then writes are committed atomically (mirrors EventSourcedEnvironment).
         Do not edit by hand — regenerate from WorldDefinition.
         """
 
@@ -85,22 +90,41 @@ def generate_runtime_module(world: WorldDefinition) -> str:
                 return text
 
 
-        def apply_effect(state: dict[str, Any], expression: str) -> None:
+        def stage_writes(state: dict[str, Any], expression: str) -> dict[str, Any]:
+            """Stage one effect into a write map without mutating *state*."""
+            working = copy.deepcopy(state)
+            writes: dict[str, Any] = {{}}
             m = _INCREMENT.match(expression)
             if m:
                 name = m.group("name")
-                state[name] = state.get(name, 0) + _literal(m.group("value"))
-                return
+                new_value = working.get(name, 0) + _literal(m.group("value"))
+                writes[name] = new_value
+                return writes
             m = _DECREMENT.match(expression)
             if m:
                 name = m.group("name")
-                state[name] = state.get(name, 0) - _literal(m.group("value"))
-                return
+                new_value = working.get(name, 0) - _literal(m.group("value"))
+                writes[name] = new_value
+                return writes
             m = _ASSIGN.match(expression)
             if m:
-                state[m.group("name")] = _literal(m.group("value"))
-                return
+                writes[m.group("name")] = _literal(m.group("value"))
+                return writes
             raise ValueError(f"unsupported effect: {{expression!r}}")
+
+
+        def apply_writes(state: dict[str, Any], writes: dict[str, Any]) -> dict[str, Any]:
+            """Commit event-derived writes; returns new state."""
+            next_state = copy.deepcopy(state)
+            for key, value in writes.items():
+                next_state[key] = copy.deepcopy(value)
+            return next_state
+
+
+        def apply_effect(state: dict[str, Any], expression: str) -> None:
+            """Legacy in-place helper retained for compatibility."""
+            writes = stage_writes(state, expression)
+            state.update(writes)
 
 
         def initial_state() -> dict[str, Any]:
@@ -108,14 +132,16 @@ def generate_runtime_module(world: WorldDefinition) -> str:
 
 
         def apply_action(state: dict[str, Any], action_id: str) -> dict[str, Any]:
-            """Apply deterministic writes for *action_id*; returns new state."""
+            """Stage intended_effects then commit writes (event-sourced apply)."""
             effects = TRANSITIONS.get(action_id)
             if effects is None:
                 raise KeyError(f"unknown action {{action_id!r}}")
-            next_state = copy.deepcopy(state)
+            write_map: dict[str, Any] = {{}}
+            working = copy.deepcopy(state)
             for expression in effects:
-                apply_effect(next_state, expression)
-            return next_state
+                write_map.update(stage_writes(working, expression))
+                working.update(write_map)
+            return apply_writes(state, write_map)
 
 
         def step_sequence(

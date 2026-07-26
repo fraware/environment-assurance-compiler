@@ -1,0 +1,15 @@
+# Digest-pinned Python slim base for EnvAssure GHCR images.
+#
+# Format (single line, no comments on the value line used by CI):
+#   python:<tag>@sha256:<hex>
+#
+# Refresh (maintainer, with network):
+#   docker buildx imagetools inspect python:3.12-slim-bookworm
+#   # Use the top-level Digest (OCI multi-arch index), not a single-platform digest.
+#   # Or: crane digest python:3.12-slim-bookworm
+#
+# Multi-arch OCI index for python:3.12-slim-bookworm (covers linux/amd64 and
+# linux/arm64 used by release.yml). Tag points at 3.12.13-slim-bookworm
+# (image created 2026-07-14). Verified via docker buildx imagetools inspect
+# on 2026-07-26.
+python:3.12-slim-bookworm@sha256:d50fb7611f86d04a3b0471b46d7557818d88983fc3136726336b2a4c657aa30b

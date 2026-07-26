@@ -1,0 +1,8 @@
+openapi: "3.0.3"
+info:
+  title: Broken
+  version: "1.0.0"
+paths:
+  /x:
+    post: [
+      this is not valid yaml structure for an operation

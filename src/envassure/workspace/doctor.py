@@ -74,6 +74,7 @@ def run_doctor(
         ("pettingzoo", "pettingzoo"),
         ("postgres", "psycopg"),
         ("model-assisted", "httpx"),
+        ("openenv", "openenv"),
     ):
         installed = _module_available(module_name)
         checks.append(
@@ -85,6 +86,18 @@ def run_doctor(
         )
         if not installed:
             report.add(make_diagnostic("EAC9003", extra=extra))
+
+    # OPA is a system binary (extra documents the dependency; not a Python import).
+    opa_bin = _binary_available("opa")
+    checks.append(
+        DoctorCheck(
+            name="extra:opa",
+            ok=True,
+            detail="binary on PATH" if opa_bin else "OPA binary not installed",
+        )
+    )
+    if not opa_bin:
+        report.add(make_diagnostic("EAC9003", extra="opa"))
 
     if not network:
         report.add(make_diagnostic("EAC9004"))
@@ -225,3 +238,9 @@ def _module_available(name: str) -> bool:
     except ImportError:
         return False
     return True
+
+
+def _binary_available(name: str) -> bool:
+    import shutil
+
+    return shutil.which(name) is not None

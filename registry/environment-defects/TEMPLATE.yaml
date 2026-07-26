@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../schemas/environment-defect-v1.schema.json
+# Copy this file to ENV-YYYY-NNNN.yaml and fill every required field.
+# Do not commit secrets, live credentials, or undisclosed security details.
+
+schema_version: "1"
+id: ENV-YYYY-NNNN
+title: "Short defect title"
+recorded_at: "YYYY-MM-DD"
+
+affected:
+  environment_or_pack: "environment_id or pack id"
+  versions:
+    - "0.0.0"
+  digests:
+    - "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+discoverer: "name or handle"
+severity: medium  # low | medium | high | critical
+class: missing_semantics
+# class enum:
+#   missing_semantics | incorrect_semantics | overstated_claim |
+#   observation_leakage | auth_mismatch | timeout_retry |
+#   stochastic_mis-model | other
+
+reproducer:
+  summary: "One-line description of the failing probe"
+  offline: true
+  fixture_path: "tests/fixtures/..."  # optional
+  steps:
+    - "Step 1"
+    - "Step 2"
+
+observed_behavior: |
+  What the environment / pack actually did.
+
+expected_behavior: |
+  What production or the reference system does, with evidence class noted.
+
+affected_claims:
+  - "Claim or fidelity dimension that becomes unsafe"
+
+disclosure_status: public  # public | embargoed | private | disclosed
+fixed_version: null
+permanent_regression: false
+residual_limitation: |
+  What remains out of claim even after a fix lands.
+
+links:
+  issues: []
+  pull_requests: []
+  releases: []
+  advisories: []
+
+notes: |
+  Optional curator notes.

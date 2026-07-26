@@ -1,0 +1,10 @@
+{
+  "metrics_policy": "dimension_separated",
+  "forbid_single_score": true,
+  "hidden_oracle_digest": "f8f4cca23463774f8cf41b292c916e4d2c9696abbf328aec09fdf163b3b1b455",
+  "public_claims": [
+    "structurally_valid_baseline",
+    "open_ambiguity_declared",
+    "unsupported_uses_declared"
+  ]
+}

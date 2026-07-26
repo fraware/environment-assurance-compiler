@@ -44,12 +44,13 @@ def test_parse_postgres_ddl_offline_no_psycopg() -> None:
 
 
 def test_postgres_adapter_fail_closed_without_extra(monkeypatch: pytest.MonkeyPatch) -> None:
-    import envassure.postgres._extra as extra_mod
+    # Patch the name bound in ddl.py (from-import), not only _extra's attribute.
+    import envassure.postgres.ddl as ddl_mod
 
     def _missing() -> Any:
         raise ImportError(POSTGRES_IMPORT_ERROR)
 
-    monkeypatch.setattr(extra_mod, "require_postgres_extra", _missing)
+    monkeypatch.setattr(ddl_mod, "require_postgres_extra", _missing)
     with pytest.raises(ImportError, match=r"envassure\[postgres\]"):
         PostgresDDLAdapter()
 

@@ -1,0 +1,9 @@
+name: openenv_refund
+openenv_pin: "0.4.1"
+actor_id: client
+world: world.json
+server: server/environment.py
+status: experimental
+notes: |
+  EnvAssure OpenEnv export is best-effort against openenv==0.4.1.
+  Unsupported semantics fail closed before startup.

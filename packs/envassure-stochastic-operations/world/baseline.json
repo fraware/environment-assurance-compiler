@@ -1,0 +1,399 @@
+{
+  "ir_version": "0.2.0",
+  "environment_id": "bench.ops.stochastic.v1",
+  "name": "Stochastic Operations Benchmark Pack Baseline",
+  "version": "0.1.0",
+  "description": "Concealed inventory / fulfillment workflow with categorical branches and underpowered-sample negative probes. Maps to stochastic_operational.",
+  "domain": "operations",
+  "assurance_profile": "benchmark_pack",
+  "task_families": [
+    "operations"
+  ],
+  "semantic_sources": [],
+  "state_model_version": "1.0",
+  "clock_model": "discrete_steps",
+  "stochasticity_model": "categorical",
+  "reset_semantics": "full_reset",
+  "termination_semantics": "goal_or_horizon",
+  "truncation_semantics": "horizon",
+  "concurrency_model": "single_actor",
+  "transaction_model": "none",
+  "external_dependencies": [],
+  "confidentiality_boundaries": [],
+  "declared_fidelity_level": "EF-0",
+  "known_unsupported_behavior": [
+    "unseeded_stochastic_sampling_as_fidelity_claim",
+    "collapsing_dimension_metrics_into_single_score"
+  ],
+  "permissible_uses": [
+    "research",
+    "evaluation",
+    "benchmarking"
+  ],
+  "determinism": "seeded_recorded_externals",
+  "state": [
+    {
+      "id": "stock",
+      "name": "stock",
+      "type": "resource_counter",
+      "constraints": [],
+      "owning_aggregate": null,
+      "initial_generator": "10",
+      "persistence": "session",
+      "reset_class": "reset_on_episode",
+      "mutation_authority": [],
+      "mutability": "mutable",
+      "confidentiality": "internal",
+      "policy_visible": true,
+      "evaluator_visible": false,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "uncertainty": null,
+      "derived_expression": null,
+      "enum_values": null,
+      "record_fields": null
+    },
+    {
+      "id": "fulfillment_status",
+      "name": "fulfillment_status",
+      "type": "enum",
+      "constraints": [],
+      "owning_aggregate": null,
+      "initial_generator": "idle",
+      "persistence": "session",
+      "reset_class": "reset_on_episode",
+      "mutation_authority": [],
+      "mutability": "mutable",
+      "confidentiality": "internal",
+      "policy_visible": true,
+      "evaluator_visible": false,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "uncertainty": null,
+      "derived_expression": null,
+      "enum_values": [
+        "idle",
+        "reserved",
+        "shipped",
+        "stockout"
+      ],
+      "record_fields": null
+    }
+  ],
+  "actors": [
+    {
+      "id": "ops",
+      "actor_class": "ops",
+      "identity_model": "named",
+      "roles": [],
+      "capabilities": [],
+      "credentials": [],
+      "authority_source": null,
+      "delegation_rules": [],
+      "revocation_rules": [],
+      "observation_projection_id": null,
+      "available_actions": [
+        "reserve",
+        "ship",
+        "observe"
+      ],
+      "lifecycle": "episode",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "observations": [],
+  "actions": [
+    {
+      "id": "reserve",
+      "version": "1",
+      "actor_classes": [
+        "ops"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [],
+      "writes": [
+        "stock",
+        "fulfillment_status"
+      ],
+      "intended_effects": [],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok",
+        "stockout"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "ship",
+      "version": "1",
+      "actor_classes": [
+        "ops"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [],
+      "writes": [
+        "fulfillment_status"
+      ],
+      "intended_effects": [],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "observe",
+      "version": "1",
+      "actor_classes": [
+        "ops"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [
+        "stock",
+        "fulfillment_status"
+      ],
+      "writes": [],
+      "intended_effects": [],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    }
+  ],
+  "failures": [],
+  "transitions": [
+    {
+      "id": "t_reserve",
+      "action_id": "reserve",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_reserve.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "ops.reserved"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_ship",
+      "action_id": "ship",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_ship.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "ops.shipped"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_observe",
+      "action_id": "observe",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_observe.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "ops.observed"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "fulfill_order",
+      "family": "operations",
+      "initial_constraints": [],
+      "actor_assignment": {
+        "operator": "ops"
+      },
+      "intent": "Reserve and ship without inventing stock",
+      "goal_claims": [
+        "fulfillment_status == \"shipped\""
+      ],
+      "prohibited_behavior": [],
+      "process_requirements": [],
+      "horizon": 8,
+      "resource_budget": {},
+      "permitted_tools": [],
+      "verifier_claim_ids": [],
+      "solvability_method": null,
+      "difficulty_factors": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "verifiers": [],
+  "evidence_obligations": [],
+  "ambiguities": [
+    {
+      "id": "pack-ops-branch-conflict",
+      "subject": "transition:fulfill / branch_weights",
+      "source_excerpts": [
+        "sources/conflict.yaml"
+      ],
+      "conflict_class": "semantic_conflict",
+      "candidate_interpretations": [
+        "fail_closed_until_decide",
+        "prefer_policy_source",
+        "prefer_trace_source"
+      ],
+      "default_prohibition": "Do not execute contested semantics without an expert decision.",
+      "affected_actions": [
+        "submit_refund",
+        "approve",
+        "reserve"
+      ],
+      "affected_tasks": [],
+      "affected_verifiers": [],
+      "affected_analyses": [],
+      "operational_consequence": "Contested path remains open; pack declares unsupported use.",
+      "required_expert_role": "domain_owner",
+      "status": "open",
+      "decision_id": null,
+      "residual_uncertainty": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "provenance": {
+    "source_ids": [],
+    "decision_ids": [],
+    "fact_ids": [],
+    "origin_kind": null,
+    "notes": null
+  }
+}

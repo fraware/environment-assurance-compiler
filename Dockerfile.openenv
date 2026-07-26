@@ -1,0 +1,71 @@
+# EnvAssure OpenEnv variant — base wheel + openenv extra (fail-closed).
+#
+# CI stages exactly one wheel at docker/context/pkg.whl before build (same as
+# the main image). Publish only when BASE_IMAGE is digest-pinned.
+#
+#   docker buildx build -f Dockerfile.openenv \
+#     --build-arg BASE_IMAGE="$(grep -v '^#' docker/base-image.lock | grep -v '^$' | tail -n1)" \
+#     --build-arg VERSION=0.2.0b1 \
+#     --build-arg REVISION=<sha> \
+#     -t ghcr.io/fraware/envassure-openenv:0.2.0b1 .
+
+ARG BASE_IMAGE=python:3.12-slim-bookworm
+FROM ${BASE_IMAGE}
+
+ARG VERSION=0.0.0
+ARG REVISION=unknown
+# Must match [project.optional-dependencies].openenv pin in pyproject.toml.
+ARG OPENENV_EXTRA=openenv
+
+LABEL org.opencontainers.image.title="envassure-openenv" \
+      org.opencontainers.image.description="Environment Assurance Compiler with OpenEnv extra" \
+      org.opencontainers.image.source="https://github.com/fraware/environment-assurance-compiler" \
+      org.opencontainers.image.url="https://github.com/fraware/environment-assurance-compiler" \
+      org.opencontainers.image.documentation="https://fraware.github.io/environment-assurance-compiler/" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}" \
+      org.opencontainers.image.vendor="EnvAssure"
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    HOME=/home/envassure \
+    PATH="/home/envassure/.local/bin:${PATH}"
+
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin envassure \
+    && mkdir -p /work /tmp/wheel \
+    && chown -R envassure:envassure /work /home/envassure /tmp/wheel
+
+VOLUME /work
+
+COPY --chown=envassure:envassure docker/context/pkg.whl /tmp/wheel/pkg.whl
+
+USER envassure
+
+RUN python -m pip install --user --upgrade pip \
+    && python -m pip install --user "/tmp/wheel/pkg.whl[${OPENENV_EXTRA}]" \
+    && rm -f /tmp/wheel/pkg.whl \
+    && eac --version \
+    && python - <<'PY'
+import importlib.metadata
+import importlib.util
+import sys
+
+if importlib.util.find_spec("openenv") is None:
+    print("FAIL: openenv missing after envassure[openenv] install", file=sys.stderr)
+    raise SystemExit(1)
+if importlib.util.find_spec("gymnasium") is None:
+    print("FAIL: gymnasium missing after envassure[openenv] install", file=sys.stderr)
+    raise SystemExit(1)
+ver = importlib.metadata.version("openenv")
+if ver != "0.4.1":
+    print(f"FAIL: openenv pin mismatch: got {ver!r}, want '0.4.1'", file=sys.stderr)
+    raise SystemExit(1)
+print(f"openenv=={ver} ok")
+PY
+
+WORKDIR /work
+ENTRYPOINT ["eac"]
+CMD ["--help"]

@@ -1,7 +1,7 @@
 # Package and publish
 
 Environment Packs (`.eap`) are checksummed archives of canonical IR plus related
-artifacts. This guide uses `examples/counter/`.
+artifacts. Format **v2** is write-current. This guide uses `examples/counter/`.
 
 ## Prerequisites
 
@@ -29,11 +29,31 @@ eac test examples/counter/ir/world.json
 eac package examples/counter/ir/world.json -o counter.eap --json
 ```
 
-The pack embeds:
+Optional first-class inputs:
 
-- `ir/world.json` (canonical)
-- Manifest with `content_digest` / environment id / tool versions
-- Optional extra members when using the Python API
+```bash
+eac package examples/counter/ir/world.json -o counter.eap \
+  --fidelity ledger.json \
+  --sources-manifest sources.yml \
+  --migration-history migration.json \
+  --signature detached.sig \
+  --workspace .
+```
+
+Every pack embeds (format v2 required members):
+
+| Member | Role |
+| --- | --- |
+| `ir/world.json` | Canonical world IR |
+| `schemas/world-*.json` + `schemas/world.json` | Write-current world schema |
+| `schemas/pack-manifest-2.json` + alias | Pack manifest schema |
+| `sources/manifest.json` | Source digests (`sources.yml` or world semantic ids) |
+| `provenance/bundle.json` | Flattened IR provenance + decision links |
+| `migration/history.json` | Migrate chain applied (identity when none) |
+| `compatibility.json` | Supported pack/IR read window |
+| `fidelity/ledger.json` | Scoped fidelity claims (no aggregate score) |
+| `manifest.json` | `format_version`, `runtime_version`, `policy_version`, per-file hashes, `content_digest` |
+| `signatures/` | Optional detached signature blobs (integrity-checked: manifest listing, per-file SHA-256, and `metadata.signatures` inventory / `signed_content_digest`; cryptographic key verification is out of band) |
 
 Secret-like payloads are rejected at pack time (fail closed).
 
@@ -48,16 +68,20 @@ Pass criteria:
 - Exit code `0`
 - Message `Pack OK`
 - No `EAC8006` diagnostics
+- Format version inside the supported read window; required members present;
+  IR + fidelity ledger parse; checksums match; optional `signatures/` members
+  match manifest listings and `metadata.signatures` digests (integrity only)
 
 Re-verify after any transfer; digests must match.
 
 ## 4. Assurance report (optional)
 
 ```bash
-eac report examples/counter/ir/world.json -o reports/counter --json
+eac report examples/counter/ir/world.json -o reports/counter --fidelity ledger.json --json
 ```
 
-Reports are derived from canonical IR digests and are not a substitute for
+Reports treat the fidelity ledger as the source of truth for sections §20.3 /
+§20.4. They are derived from canonical IR digests and are not a substitute for
 `verify-pack`.
 
 ## 5. Versioning guidance
@@ -66,6 +90,8 @@ Reports are derived from canonical IR digests and are not a substitute for
 2. Rebuild IR → re-lint → re-analyze → re-package → re-verify.
 3. Record open ambiguities / expert decisions before claiming release grade.
 4. Keep `ir_version` aligned with the installed `envassure` IR schema.
+5. Pack `format_version` is independent of IR version; see
+   [compatibility](../compatibility.md).
 
 ## 6. Publish (local hand-off)
 
@@ -78,6 +104,10 @@ eac verify-pack counter.eap
 
 Consumers should run `eac verify-pack` before loading IR from the archive.
 
+For compiler package releases (wheels / sdist), see
+[supply chain](../security/supply-chain.md) for CycloneDX SBOM assets and
+GitHub build-provenance verification (`gh attestation verify`).
+
 ## Checklist
 
 | Step | Command | Fail closed on |
@@ -85,5 +115,5 @@ Consumers should run `eac verify-pack` before loading IR from the archive.
 | Build | `eac build-ir` | Module/IR errors |
 | Lint | `eac lint` | `EAC3xxx` |
 | Analyze | `eac analyze` | Unexpected `EAC4xxx`/`EAC5xxx` for release |
-| Package | `eac package` | Secrets / IO errors |
-| Verify | `eac verify-pack` | Digest / schema / secret scan (`EAC8006`) |
+| Package | `eac package` | Secrets / missing v2 inputs / IO errors |
+| Verify | `eac verify-pack` | Digest / format window / ledger / secret scan (`EAC8006`) |

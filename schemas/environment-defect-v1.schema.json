@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/fraware/environment-assurance-compiler/main/schemas/environment-defect-v1.schema.json",
+  "title": "EnvAssure environment defect record v1",
+  "description": "Public registry record for fidelity / semantics gaps between an EnvAssure environment and a real or reference system.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "affected",
+    "discoverer",
+    "severity",
+    "class",
+    "reproducer",
+    "observed_behavior",
+    "expected_behavior",
+    "affected_claims",
+    "disclosure_status",
+    "permanent_regression",
+    "residual_limitation",
+    "links"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^ENV-[0-9]{4}-[0-9]{4}$",
+      "description": "ENV-YYYY-NNNN"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "affected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment_or_pack",
+        "versions",
+        "digests"
+      ],
+      "properties": {
+        "environment_or_pack": {
+          "type": "string"
+        },
+        "versions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "digests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "discoverer": {
+      "type": "string"
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "class": {
+      "type": "string",
+      "enum": [
+        "missing_semantics",
+        "incorrect_semantics",
+        "overstated_claim",
+        "observation_leakage",
+        "auth_mismatch",
+        "timeout_retry",
+        "stochastic_mis-model",
+        "other"
+      ]
+    },
+    "reproducer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "steps"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "fixture_path": {
+          "type": "string"
+        },
+        "offline": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "observed_behavior": {
+      "type": "string"
+    },
+    "expected_behavior": {
+      "type": "string"
+    },
+    "affected_claims": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "disclosure_status": {
+      "type": "string",
+      "enum": [
+        "public",
+        "embargoed",
+        "private",
+        "disclosed"
+      ]
+    },
+    "fixed_version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Package or pack version containing the fix; null if open."
+    },
+    "permanent_regression": {
+      "type": "boolean",
+      "description": "True when a regression fixture must remain in CI forever."
+    },
+    "residual_limitation": {
+      "type": "string",
+      "description": "What remains out of claim after any fix."
+    },
+    "links": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "issues": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "pull_requests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "releases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "advisories": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date"
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

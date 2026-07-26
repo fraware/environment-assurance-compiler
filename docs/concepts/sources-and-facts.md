@@ -32,6 +32,23 @@ Built-in import kinds (via `eac import`):
 Adapters emit **candidate** `SemanticFact` records — they do not silently invent
 missing timeout, retry, or idempotency semantics.
 
+### OpenAPI supported matrix (0.2)
+
+| Construct | Status |
+| --------- | ------ |
+| Paths + HTTP methods, `operationId` | Supported (direct) |
+| Local `$ref` under `#/components` | Supported |
+| Path-level parameter inheritance | Supported |
+| Request/response `content` media types | Supported |
+| Operation + document-level `security` | Supported |
+| `components.schemas` / `securitySchemes` | Supported |
+| Remote `$ref`, circular `$ref` | Unsupported (`EAC1006`) |
+| `callbacks`, `links`, `webhooks` | Unsupported (`EAC1006`) |
+
+Confidence is never uniform: direct excerpts use high/medium certainty with
+`derivation_class=direct`; inferred hints (for example HTTP 504 → timeout
+behavior) use medium/low certainty with `derivation_class=inferred`.
+
 ## Fact store and reconciliation
 
 Facts accumulate under the workspace `facts/` directory. Reconciliation detects:

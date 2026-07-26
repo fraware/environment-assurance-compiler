@@ -21,3 +21,7 @@ explicit `model_proposal` origin and human acceptance path.
 - Content-addressed digests (canonical JSON) pin artifacts in lock files.
 - Missing provenance is a diagnostic defect for release-grade packs.
 - Silent invention of timeout/retry/idempotency semantics is forbidden.
+- IR `ProvenanceRef.origin_kind` distinguishes source-derived facts from
+  inferred, default, conflict, human-decision, simulator-only, connector, and
+  fidelity-evidence origins; inferred facts must never be tagged
+  `source_derived` (see EAC3008).

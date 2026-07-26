@@ -1,0 +1,17 @@
+{
+  "classic_retry_ambiguity": {
+    "kind": "conflict",
+    "subject": "action:submit_refund",
+    "aspect": "retry_behavior",
+    "fixture_alias": "AMB-0042",
+    "id_algorithm": "envassure.reconciliation.ambiguity_id"
+  },
+  "expected_diagnostics_hint": [
+    "EAC4027"
+  ],
+  "semantic_sources": [
+    "input/api.yaml",
+    "input/refund-sop.md",
+    "input/trace-0187.jsonl"
+  ]
+}

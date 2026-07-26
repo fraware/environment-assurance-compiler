@@ -6,9 +6,15 @@ from pathlib import Path
 
 import yaml
 
+from envassure.diagnostics.factory import make_diagnostic
+from envassure.diagnostics.models import DiagnosticReport
 from envassure.facts.models import ConfidenceRecord, SemanticFact, make_fact_id
 from envassure.ir.primitives import EntityRef
-from envassure.sources.base import SourceParseError
+from envassure.sources.base import AdapterResult, SourceParseError
+
+_UNSUPPORTED_ROOT_KEYS = frozenset(
+    {"rego", "rego_module", "opa", "unsupported_engine", "cedar", "abac_rules"}
+)
 
 
 class PolicyAdapter:
@@ -17,6 +23,9 @@ class PolicyAdapter:
     kind = "policy"
 
     def parse(self, path: Path) -> list[SemanticFact]:
+        return self.parse_detailed(path).facts
+
+    def parse_detailed(self, path: Path) -> AdapterResult:
         if not path.is_file():
             raise SourceParseError(path, "file not found")
         try:
@@ -26,21 +35,42 @@ class PolicyAdapter:
         if not isinstance(data, dict):
             raise SourceParseError(path, "policy root must be a mapping")
 
+        report = DiagnosticReport()
+        source = str(path)
+        for feature in sorted(_UNSUPPORTED_ROOT_KEYS & set(data)):
+            report.add(
+                make_diagnostic(
+                    "EAC1006",
+                    feature=feature,
+                    subject=source,
+                    reason="root-level construct is outside the policy adapter matrix",
+                )
+            )
+
         permissions = data.get("permissions")
         if permissions is None:
             raise SourceParseError(path, "missing permissions list")
         if not isinstance(permissions, list):
             raise SourceParseError(path, "permissions must be a list")
 
-        source = str(path)
         confidence = ConfidenceRecord(
             evidence_class="formal_policy",
+            derivation_class="direct",
             extractor_certainty="high",
         )
         facts: list[SemanticFact] = []
         for index, entry in enumerate(permissions):
             if not isinstance(entry, dict):
                 raise SourceParseError(path, f"permissions[{index}] must be a mapping")
+            for feature in sorted({"rego_module", "cedar", "opa"} & set(entry)):
+                report.add(
+                    make_diagnostic(
+                        "EAC1006",
+                        feature=feature,
+                        subject=f"permissions[{index}]",
+                        reason="permission entry uses unsupported policy extension",
+                    )
+                )
             role = entry.get("role")
             action = entry.get("action")
             effect = entry.get("effect", "allow")
@@ -119,4 +149,4 @@ class PolicyAdapter:
                         kind_tags=["role", "policy"],
                     )
                 )
-        return facts
+        return AdapterResult(facts=facts, diagnostics=report)

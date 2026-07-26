@@ -1,0 +1,5 @@
+families:
+- deny_path
+- delegation
+- observation_separation
+- role_escalation

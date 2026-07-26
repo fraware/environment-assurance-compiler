@@ -1,0 +1,12 @@
+[project]
+name = "envassure-example-refund"
+version = "0.1.0"
+description = "EnvAssure E1 refund conflict example (OpenAPI + SOP + trace)."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "envassure",
+]
+
+[project.optional-dependencies]
+# No integration extras required for the open-conflict demo.

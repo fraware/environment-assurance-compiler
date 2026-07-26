@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+title: EnvAssure Public Beta Reproducibility Bundle
+message: If you use this bundle, please cite EnvAssure.
+type: software
+authors:
+  - name: EnvAssure contributors
+repository-code: https://github.com/fraware/environment-assurance-compiler
+license: Apache-2.0
+version: 0.2.0b1
+abstract: >
+  Independently verifiable digests for EnvAssure benchmark packs and related
+  public-beta research artifacts.

@@ -17,7 +17,7 @@ from envassure.ir.explain import explain_element
 from envassure.ir.io import load_world, save_world
 from envassure.ir.models import WorldDefinition
 from envassure.ir.schema import export_schemas
-from envassure.ir.validate import validate_world
+from envassure.ir.validate import ReleaseProfile, validate_world
 from envassure.workspace.layout import WorkspacePaths
 
 
@@ -97,7 +97,7 @@ def build_ir_command(
             out = root / "ir" / "world.json"
         else:
             out = Path(mod_path).resolve().parent / "ir" / "world.json"
-    validation = validate_world(world)
+    validation = validate_world(world, profile=ReleaseProfile.AUTHORING)
     report.extend(validation.diagnostics)
     if report.has_errors():
         emit_report(report, as_json=as_json, exit_code=ExitCode.ERROR)
@@ -128,9 +128,17 @@ def lint_command(
         "--force",
         help="Lint even when IR digest matches last successful lint.",
     ),
+    profile: str = typer.Option(
+        ReleaseProfile.EXECUTABLE.value,
+        "--profile",
+        help=(
+            "Release profile: authoring | executable | differential | "
+            "research_release | deployment_calibration."
+        ),
+    ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Validate IR reference integrity."""
+    """Validate IR via the v2 pipeline (default profile: executable)."""
     from envassure.workspace.incremental import (
         decide_incremental_lint,
         record_lint_state,
@@ -147,12 +155,13 @@ def lint_command(
                 "reason": decision.reason,
                 "aggregate": decision.aggregate,
                 "environment_id": None,
+                "profile": profile,
             },
         )
         return
 
     world = load_world(ir_path)
-    report = validate_world(world)
+    report = validate_world(world, profile=profile)
     report.extend(decision.report.diagnostics)
     if report.has_errors():
         emit_report(report, as_json=as_json, exit_code=ExitCode.ERROR)
@@ -161,7 +170,11 @@ def lint_command(
         as_json=as_json,
         message=f"IR OK: {world.environment_id}",
         report=report,
-        extra={"environment_id": world.environment_id, "skipped": False},
+        extra={
+            "environment_id": world.environment_id,
+            "skipped": False,
+            "profile": profile,
+        },
     )
 
 

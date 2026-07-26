@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import typer
@@ -13,6 +14,11 @@ from envassure.benchmark import (
     run_ablation_sweep,
     run_fixture_benchmark,
     write_benchmark_report,
+)
+from envassure.benchmark.workflows import (
+    WORKFLOW_IDS,
+    build_workflow_oracle,
+    run_concealed_suite,
 )
 from envassure.cli.output import emit_report, emit_success
 from envassure.diagnostics.exit_codes import ExitCode
@@ -30,6 +36,11 @@ def benchmark_command(
         "--suite",
         help="Run default beta suite fixtures relative to repo/CWD.",
     ),
+    concealed: bool = typer.Option(
+        False,
+        "--concealed",
+        help="Run three concealed hidden-reference workflows (>=100 curated+generated each).",
+    ),
     ablation: bool = typer.Option(
         False,
         "--ablation",
@@ -46,6 +57,28 @@ def benchmark_command(
 ) -> None:
     """Run offline fixture-oracle benchmarks (no network)."""
     report = DiagnosticReport()
+
+    if concealed:
+        # Full concealed suite uses curated+generated; max_probes caps each half when set.
+        curated = max(1, min(100, max_probes))
+        generated = max(1, min(100, max_probes))
+        reports = run_concealed_suite(
+            curated_count=curated,
+            generated_count=generated,
+            max_probes=curated + generated,
+        )
+        payload = [r.model_dump(mode="json") for r in reports]
+        if output is not None:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        emit_success(
+            as_json=as_json,
+            message=(f"Concealed suite: {len(reports)} workflow(s) ({', '.join(WORKFLOW_IDS)})"),
+            report=report,
+            extra={"reports": payload, "output": str(output) if output else None},
+        )
+        return
+
     if suite:
         suite_model = default_beta_suite()
         reports = []
@@ -79,8 +112,6 @@ def benchmark_command(
         payload = [r.model_dump(mode="json") for r in reports]
         if output is not None:
             output.parent.mkdir(parents=True, exist_ok=True)
-            import json
-
             output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         emit_success(
             as_json=as_json,
@@ -94,7 +125,7 @@ def benchmark_command(
         report.add(
             make_diagnostic(
                 "EAC9005",
-                reason="provide a fixture path or pass --suite",
+                reason="provide a fixture path or pass --suite / --concealed",
                 subject="benchmark",
             )
         )
@@ -110,13 +141,37 @@ def benchmark_command(
         )
         emit_report(report, as_json=as_json, exit_code=ExitCode.ERROR)
 
+    # Manifest fixtures: expand via workflow generator when marked concealed.
+    raw = json.loads(fixture.read_text(encoding="utf-8"))
+    if isinstance(raw, dict) and raw.get("generator") in WORKFLOW_IDS:
+        oracle = build_workflow_oracle(
+            raw["generator"],
+            curated_count=int(raw.get("curated_count", 100)),
+            generated_count=int(raw.get("generated_count", 100)),
+            seed=int(raw.get("seed", 0)),
+        )
+        abl = AblationConfig(name="cli", hidden_reference=True, max_probes=max_probes)
+        result = run_fixture_benchmark(oracle, ablation=abl, case_id=fixture.stem)
+        if output is not None:
+            write_benchmark_report(result, output)
+        emit_success(
+            as_json=as_json,
+            message=(
+                f"Benchmark {result.case_id}: {result.episode_count} episodes "
+                f"(diff_match={result.metrics.diff_match})"
+            ),
+            extra={
+                "report": result.model_dump(mode="json"),
+                "output": str(output) if output else None,
+            },
+        )
+        return
+
     abl = AblationConfig(name="cli", hidden_reference=True, max_probes=max_probes)
     if ablation:
         results = run_ablation_sweep(fixture, default_ablations(), case_id=fixture.stem)
         payload = [r.model_dump(mode="json") for r in results]
         if output is not None:
-            import json
-
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         emit_success(

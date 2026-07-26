@@ -1,0 +1,4 @@
+tasks:
+- id: envassure-transactional-refund-primary
+  family: transactional
+  intent: Exercise public baseline against concealed oracle

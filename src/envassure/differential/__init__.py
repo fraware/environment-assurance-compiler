@@ -6,6 +6,8 @@ from envassure.differential.compare import (
     ComparisonDimension,
     ComparisonResult,
     ComparisonTolerances,
+    DimensionVerdict,
+    VerdictStatus,
     compare_outcomes,
 )
 from envassure.differential.connector import (
@@ -28,7 +30,9 @@ __all__ = [
     "ComparisonDimension",
     "ComparisonResult",
     "ComparisonTolerances",
+    "DimensionVerdict",
     "FileBackedSimulatorConnector",
+    "HttpReferenceConnector",
     "InMemoryReferenceConnector",
     "LocalHttpStubConnector",
     "MinimizationResult",
@@ -40,6 +44,7 @@ __all__ = [
     "ReductionStep",
     "ReferenceConnector",
     "SubprocessReferenceConnector",
+    "VerdictStatus",
     "compare_outcomes",
     "minimize_counterexample",
     "plan_probes",
@@ -51,4 +56,8 @@ def __getattr__(name: str) -> object:
         from envassure.postgres import PostgresReferenceConnector
 
         return PostgresReferenceConnector
+    if name == "HttpReferenceConnector":
+        from envassure.differential.http_connector import HttpReferenceConnector
+
+        return HttpReferenceConnector
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

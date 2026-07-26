@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: refund
+      POSTGRES_PASSWORD: refund
+      POSTGRES_DB: refund
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U refund -d refund"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  refund_service:
+    build: .
+    environment:
+      REFUND_SERVICE_HOST: 0.0.0.0
+      REFUND_SERVICE_PORT: "8080"
+      ENVASURE_EVALUATOR_TOKEN: dev-evaluator-token
+      PLANT_MISMATCH: ${PLANT_MISMATCH:-0}
+      DATABASE_URL: postgresql://refund:refund@postgres:5432/refund
+    ports:
+      - "18080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy

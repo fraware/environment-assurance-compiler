@@ -1,0 +1,63 @@
+schema_version: '1'
+pack_id: envassure-stochastic-operations
+version: 0.2.0b1
+name: Stochastic Operations Benchmark Pack
+description: Concealed inventory / fulfillment workflow with categorical branches
+  and underpowered-sample negative probes. Maps to stochastic_operational.
+domain: operations
+licenses:
+- Apache-2.0
+permitted_uses:
+- research
+- evaluation
+- benchmarking
+sensitivity: public
+required_envassure: '>=0.2.0b1'
+required_ir: 0.2.0
+connector_type: fixture_oracle
+workflow_id: stochastic_operational
+public_components:
+- sources/
+- decisions/
+- baselines/public-baseline.json
+- probes/
+- expected-public/
+hidden_components:
+- concealed_oracle_episodes
+- digest:b1c1f5d4cc3ac05f24f39063c1427cec28564b0c15f8c848db0ca55e51bc6b54
+probe_families:
+- stockout_branch
+- categorical_transition
+- underpowered_sample
+- fulfillment_timeout
+metrics:
+- transition_agreement
+- auth_agreement
+- failure_agreement
+- observation_agreement
+- leakage
+- solvability
+- diff_match
+limitations:
+- Hidden oracle episodes are digest-pinned and not shipped as answer keys.
+- Interface agreement is not production behavioral parity.
+- Dimension metrics must not be collapsed into a single score.
+maintainers:
+- name: EnvAssure maintainers
+  role: governance
+governance_owner: EnvAssure maintainers
+digests:
+  hidden_oracle: b1c1f5d4cc3ac05f24f39063c1427cec28564b0c15f8c848db0ca55e51bc6b54
+  baseline_world: d70704ae434a52e0e1c892dd91dd2d3529519a695607db3afc9e8d113da95f45
+  pack_tree: 6f8ab18cd61278aacbcbd008a4d1149fa9e38f80fcc58440989bf863c498d2c1
+includes:
+  source_conflict: sources/conflict.yaml
+  open_ambiguity: decisions/open-ambiguity.yaml
+  hidden_reference: probes/hidden-reference.yaml
+  unsupported_uses: world/unsupported-uses.yaml
+  baseline: baselines/public-baseline.json
+  mutation_suite: probes/mutation-suite.yaml
+  differential_plan: probes/differential-plan.yaml
+metadata:
+  fixture_path: benchmarks/fixtures/stochastic_operational.json
+  mapped_from: envassure.benchmark.workflows

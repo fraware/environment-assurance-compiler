@@ -1,0 +1,28 @@
+# Path-scoped coverage for security / correctness semantic cores.
+# CI enforces fail-under ≥90% after the full suite (same .coverage data).
+#
+# Scope: expressions; runtime auth/payloads/observations/engine/effects/
+# external/snapshot; differential.compare; reconciliation engine+cegr.
+# Deliberately omits differential.connector / probes / minimize (I/O-heavy)
+# and runtime adapters/codegen/protocol (optional surfaces).
+
+[run]
+branch = true
+source = envassure
+
+[report]
+show_missing = true
+skip_covered = false
+fail_under = 90
+include =
+    */envassure/expressions/*
+    */envassure/runtime/authorization.py
+    */envassure/runtime/payloads.py
+    */envassure/runtime/observations.py
+    */envassure/runtime/engine.py
+    */envassure/runtime/effects.py
+    */envassure/runtime/external.py
+    */envassure/runtime/snapshot.py
+    */envassure/differential/compare.py
+    */envassure/reconciliation/engine.py
+    */envassure/reconciliation/cegr.py

@@ -1,0 +1,105 @@
+# Documentation build (strict) and GitHub Pages deploy scaffold.
+# Versioned mike publish on tags is wired here; stable aliases require the
+# github-pages Environment approval (see release-process.md).
+
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: mkdocs build (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install docs extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: MkDocs strict build
+        run: mkdocs build --strict
+
+      - name: Upload site artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mkdocs-site
+          path: site
+          if-no-files-found: error
+
+  deploy:
+    name: deploy GitHub Pages (scaffold)
+    needs: build
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install docs extra (mike)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+
+      - name: Configure git identity for mike
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Mike publish (tag or manual)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            VER="${GITHUB_REF_NAME#v}"
+            # Beta train aliases — no /stable on beta cuts
+            mike deploy --push --update-aliases "$VER" "0.2" "beta"
+          else
+            mike deploy --push develop
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Placeholder deployment marker
+        id: deployment
+        run: |
+          echo "page_url=https://fraware.github.io/environment-assurance-compiler/" >> "$GITHUB_OUTPUT"
+          echo "Docs deploy via mike to gh-pages branch (Pages Environment: github-pages)."

@@ -1,0 +1,14 @@
+suite_id: envassure-stochastic-operations-mutations-v1
+mutations:
+- id: drop_deny_path
+  target: authorization|failure
+  description: Remove a deny / conflict failure path.
+  expected_detection: auth_agreement or failure_agreement regression
+- id: leak_hidden_field
+  target: observation
+  description: Expose an evaluator-only path to agents.
+  expected_detection: leakage increase
+- id: collapse_metrics
+  target: reporting
+  description: Collapse dimension metrics into one score.
+  expected_detection: pack limitation / verify_fpr

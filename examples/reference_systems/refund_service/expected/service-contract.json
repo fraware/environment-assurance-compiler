@@ -1,0 +1,14 @@
+{
+  "required_files": [
+    "app/server.py",
+    "docker-compose.yml",
+    "Dockerfile",
+    "openapi.yaml",
+    "policy.md",
+    "fault-profile.json",
+    "migrations/001_init.sql",
+    "README.md"
+  ],
+  "planted_observation_balance": 999,
+  "authoritative_balance": 1000
+}

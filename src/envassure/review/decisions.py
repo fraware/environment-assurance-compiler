@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
@@ -17,7 +18,13 @@ from envassure.ir.primitives import AmbiguityStatus, ProvenanceRef
 
 
 class DecisionRecord(BaseModel):
-    """Expert decision resolving an ambiguity (§11.3)."""
+    """Append-only typed expert decision resolving an ambiguity (§11.3 / R11).
+
+    ``content_digest`` hashes the decision payload for integrity linking.
+    ``prior_decision_digest`` chains append-only revisions when superseding.
+    Precedence among candidates is review ordering recorded here — not a
+    silent reconcile-time semantic choice.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -28,8 +35,12 @@ class DecisionRecord(BaseModel):
     rationale: str
     timestamp: str
     provenance: ProvenanceRef = Field(default_factory=ProvenanceRef)
+    evidence_refs: list[str] = Field(default_factory=list)
     residual_uncertainty: str | None = None
     status_effect: AmbiguityStatus = "accepted"
+    content_digest: str | None = None
+    prior_decision_digest: str | None = None
+    reviewer: str | None = None
 
 
 class ApplyDecisionResult(BaseModel):
@@ -52,6 +63,15 @@ def list_ambiguities(
     return sorted((a for a in items if a.status == status), key=lambda a: a.id)
 
 
+def decision_content_digest(decision: DecisionRecord) -> str:
+    """Canonical SHA-256 digest of the decision payload (excluding digests)."""
+    payload = decision.model_dump(mode="json")
+    payload.pop("content_digest", None)
+    payload.pop("prior_decision_digest", None)
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(encoded.encode()).hexdigest()
+
+
 def apply_decision(
     ambiguities: Sequence[AmbiguityRecord],
     *,
@@ -64,6 +84,9 @@ def apply_decision(
     provenance: ProvenanceRef | None = None,
     residual_uncertainty: str | None = None,
     status_effect: AmbiguityStatus = "accepted",
+    evidence_refs: Sequence[str] | None = None,
+    reviewer: str | None = None,
+    prior_decision_digest: str | None = None,
 ) -> ApplyDecisionResult:
     """Apply an expert decision, updating the matching ambiguity status."""
     report = DiagnosticReport()
@@ -81,6 +104,9 @@ def apply_decision(
 
     ts = timestamp or datetime.now(UTC).isoformat()
     did = decision_id or f"DEC-{ambiguity_id}"
+    evidence = (
+        list(evidence_refs) if evidence_refs is not None else list(target.provenance.fact_ids)
+    )
     decision = DecisionRecord(
         decision_id=did,
         ambiguity_id=ambiguity_id,
@@ -89,9 +115,13 @@ def apply_decision(
         rationale=rationale,
         timestamp=ts,
         provenance=provenance or ProvenanceRef(),
+        evidence_refs=evidence,
         residual_uncertainty=residual_uncertainty,
         status_effect=status_effect,
+        prior_decision_digest=prior_decision_digest,
+        reviewer=reviewer or expert_role,
     )
+    decision = decision.model_copy(update={"content_digest": decision_content_digest(decision)})
     for index, amb in enumerate(updated):
         if amb.id == ambiguity_id:
             updated[index] = amb.model_copy(

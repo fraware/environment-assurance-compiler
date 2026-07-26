@@ -1,0 +1,100 @@
+name: Reproduce
+
+# Build / refresh the reproducibility bundle, then verify it in a second job
+# that does not check out the source tree.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packs/**"
+      - "reproducibility/**"
+      - "schemas/benchmark-pack-1.json"
+      - "src/envassure/benchmark/pack_format.py"
+      - "src/envassure/cli/commands/benchmark_pack_cmds.py"
+      - "scripts/generate_benchmark_packs.py"
+      - "scripts/generate_reproducibility_bundle.py"
+      - ".github/workflows/reproduce.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packs/**"
+      - "reproducibility/**"
+      - "schemas/benchmark-pack-1.json"
+      - "src/envassure/benchmark/pack_format.py"
+      - "src/envassure/cli/commands/benchmark_pack_cmds.py"
+      - "scripts/generate_benchmark_packs.py"
+      - "scripts/generate_reproducibility_bundle.py"
+      - ".github/workflows/reproduce.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: reproduce-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-bundle:
+    name: build + pack verify + bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Lint and verify benchmark packs
+        run: |
+          eac pack lint packs --json
+          eac pack verify packs --json
+      - name: Refresh reproducibility bundle
+        run: python scripts/generate_reproducibility_bundle.py --refresh
+      - name: In-tree verify
+        run: bash reproducibility/verify.sh
+      - name: Stage artifact
+        run: |
+          mkdir -p dist-repro
+          cp -a reproducibility/. dist-repro/
+          # Drop VCS / editor noise if any
+          rm -rf dist-repro/.git || true
+          tar -C dist-repro -czf reproducibility-bundle.tar.gz .
+      - name: Upload reproducibility bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: reproducibility-bundle
+          path: |
+            dist-repro/
+            reproducibility-bundle.tar.gz
+          if-no-files-found: error
+
+  verify-without-checkout:
+    name: verify without source checkout
+    needs: build-bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download bundle artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: reproducibility-bundle
+          path: bundle-dl
+      - name: Extract and verify (no checkout)
+        run: |
+          set -euo pipefail
+          # Prefer the directory payload; fall back to tarball.
+          if [[ -d bundle-dl/dist-repro ]]; then
+            cd bundle-dl/dist-repro
+          elif [[ -f bundle-dl/reproducibility-bundle.tar.gz ]]; then
+            mkdir -p extracted
+            tar -xzf bundle-dl/reproducibility-bundle.tar.gz -C extracted
+            cd extracted
+          else
+            # Artifact may unpack files at the top level
+            cd bundle-dl
+          fi
+          test -f MANIFEST.json
+          test -f verify.sh
+          bash verify.sh
+          echo "verify-without-checkout OK"

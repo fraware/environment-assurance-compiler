@@ -1,5 +1,14 @@
 name: CI
 
+# Job policy (blocking vs advisory):
+#   BLOCKING — lint-type-test, smoke, package (incl. §4.4 acceptance), docs,
+#              counter-e2e, schemas, extras-import, benchmark,
+#              coverage fail-under gates (overall / cores / assurance / semantic).
+#   ADVISORY — sbom-preview (informational CycloneDX artifact; signing lives on
+#              the Release workflow). continue-on-error only here.
+# Security gates (gitleaks, pip-audit, CodeQL, image/fs scan): security.yml
+# Schedule: see nightly-empirical.yml for uncapped concealed benchmarks.
+
 on:
   push:
     branches: [main]
@@ -17,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,8 +43,39 @@ jobs:
         run: ruff format --check src tests
       - name: Mypy
         run: mypy
-      - name: Pytest
-        run: pytest
+      - name: Pytest with coverage (overall fail-under 75)
+        run: |
+          # Overall package coverage measured ~78% (branch) after semantic-core
+          # tests. Floor is 75. Semantic cores separately gated at ≥90%.
+          pytest \
+            --cov=envassure \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=75
+      - name: Coverage cores gate (fail-under 80)
+        if: matrix.python-version == '3.12'
+        run: |
+          # Re-report the same .coverage data with CLI/adapters/tasks omitted.
+          coverage report --rcfile=.coveragerc.cores
+      - name: Coverage assurance gate (fail-under 80)
+        if: matrix.python-version == '3.12'
+        run: |
+          # IR / packaging / workspace / diagnostics / facts / reports /
+          # differential.compare — packages already near ≥80%.
+          coverage report --rcfile=.coveragerc.assurance
+      - name: Coverage semantic-core gate (fail-under 90)
+        if: matrix.python-version == '3.12'
+        run: |
+          # expressions + runtime auth/payloads/observations/engine/effects/
+          # external/snapshot + differential.compare + reconciliation.
+          coverage report --rcfile=.coveragerc.semantic
+      - name: Upload coverage XML
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: warn
 
   smoke:
     name: eac smoke (${{ matrix.os }})
@@ -87,3 +127,250 @@ jobs:
           code=$?
           set -e
           test "$code" -ne 0
+
+  extras-import:
+    name: extras import (${{ matrix.extra }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        extra: [gym, pettingzoo, postgres, model-assisted]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install extra
+        run: |
+          python -m pip install --upgrade pip
+          if [ "${{ matrix.extra }}" = "gym" ] || [ "${{ matrix.extra }}" = "pettingzoo" ]; then
+            pip install -e ".[${{ matrix.extra }},dev]"
+          else
+            pip install -e ".[${{ matrix.extra }}]"
+          fi
+      - name: Import smoke
+        run: |
+          python - <<'PY'
+          import sys
+          extra = "${{ matrix.extra }}"
+          if extra == "gym":
+              import gymnasium  # noqa: F401
+              from envassure.runtime.adapters import GymAssureEnv
+              assert GymAssureEnv is not None
+          elif extra == "pettingzoo":
+              import pettingzoo  # noqa: F401
+              from envassure.runtime.adapters import PettingZooAssureEnv
+              assert PettingZooAssureEnv is not None
+          elif extra == "postgres":
+              import psycopg  # noqa: F401
+              from envassure.postgres import (
+                  PostgresDDLAdapter,
+                  PostgresReferenceConnector,
+                  parse_postgres_ddl,
+              )
+              assert PostgresDDLAdapter is not None
+              assert PostgresReferenceConnector is not None
+              assert callable(parse_postgres_ddl)
+          elif extra == "model-assisted":
+              import httpx  # noqa: F401
+              from envassure.model_assisted.http import HttpProposalProvider
+              from envassure.model_assisted import StubProposalProvider
+              assert HttpProposalProvider is not None
+              assert StubProposalProvider is not None
+          else:
+              raise SystemExit(f"unknown extra: {extra}")
+          print(f"extra ok: {extra}", file=sys.stderr)
+          PY
+      - name: Adapter semantic release tests
+        if: matrix.extra == 'gym' || matrix.extra == 'pettingzoo'
+        run: |
+          if [ "${{ matrix.extra }}" = "gym" ]; then
+            pytest -m gym tests/test_adapters_release.py
+          else
+            pytest -m pettingzoo tests/test_adapters_release.py
+          fi
+
+  benchmark:
+    name: offline benchmark regression
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Default beta suite
+        run: eac benchmark --suite --json
+      - name: Counter + auth fixture oracles
+        run: |
+          eac benchmark benchmarks/fixtures/counter_oracle.json --json
+          eac benchmark benchmarks/fixtures/auth_oracle.json --json
+      - name: Concealed suite (capped probes for CI time)
+        run: eac benchmark --concealed --max-probes 20 --json
+
+  package:
+    name: sdist / wheel + package acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Build distributions
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Clean install from wheel + acceptance (§4.4)
+        run: |
+          python -m venv /tmp/eac-wheel
+          /tmp/eac-wheel/bin/pip install --upgrade pip
+          /tmp/eac-wheel/bin/pip install dist/*.whl
+          /tmp/eac-wheel/bin/eac --version
+          /tmp/eac-wheel/bin/eac --help
+          /tmp/eac-wheel/bin/python scripts/check_package_acceptance.py \
+            --repo-root . \
+            --dist-dir dist
+      - name: Clean install from sdist
+        run: |
+          python -m venv /tmp/eac-sdist
+          /tmp/eac-sdist/bin/pip install --upgrade pip
+          /tmp/eac-sdist/bin/pip install dist/*.tar.gz
+          /tmp/eac-sdist/bin/eac --version
+          /tmp/eac-sdist/bin/python -c "import envassure; print(envassure.__version__)"
+
+  docs:
+    name: mkdocs build (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install docs extra
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[docs]"
+      - name: MkDocs strict build
+        run: mkdocs build --strict
+
+  counter-e2e:
+    name: counter example E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Build lint run package verify
+        run: |
+          eac build-ir --module examples/counter/world.py -o /tmp/counter-ir.json --force
+          eac lint /tmp/counter-ir.json
+          eac run /tmp/counter-ir.json -a increment,increment
+          eac test /tmp/counter-ir.json -a increment,reset,increment
+          eac package /tmp/counter-ir.json -o /tmp/counter.eap
+          eac verify-pack /tmp/counter.eap
+
+  schemas:
+    name: schema / fixture JSON checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+      - name: Validate published schemas and aliases
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("schemas")
+          required = [
+              "world.json",
+              "world-0.1.0.json",
+              "world-0.2.0.json",
+              "pack-manifest.json",
+              "pack-manifest-1.json",
+              "pack-manifest-2.json",
+              "release-manifest-1.json",
+          ]
+          for name in required:
+              path = root / name
+              assert path.is_file(), f"missing schema: {path}"
+              data = json.loads(path.read_text(encoding="utf-8"))
+              assert isinstance(data, dict), f"schema root must be object: {path}"
+
+          world = json.loads((root / "world.json").read_text(encoding="utf-8"))
+          current = json.loads((root / "world-0.2.0.json").read_text(encoding="utf-8"))
+          assert world == current, "schemas/world.json must alias world-0.2.0.json"
+
+          pack = json.loads((root / "pack-manifest.json").read_text(encoding="utf-8"))
+          pack_current = json.loads((root / "pack-manifest-2.json").read_text(encoding="utf-8"))
+          assert pack == pack_current, "schemas/pack-manifest.json must alias pack-manifest-2.json"
+
+          # Fixture / example IR documents must be parseable JSON objects.
+          samples = [
+              Path("examples/counter/ir/world.json"),
+              Path("tests/fixtures/ir/world_0_1_0_minimal.json"),
+          ]
+          for path in samples:
+              assert path.is_file(), f"missing sample: {path}"
+              doc = json.loads(path.read_text(encoding="utf-8"))
+              assert isinstance(doc, dict)
+              assert "ir_version" in doc or "environment_id" in doc, path
+          print("schema checks ok")
+          PY
+      - name: Load example IR via package models
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from envassure.ir.models import WorldDefinition
+
+          path = Path("examples/counter/ir/world.json")
+          WorldDefinition.model_validate_json(path.read_text(encoding="utf-8"))
+          print("counter IR validates against WorldDefinition")
+          PY
+
+  sbom-preview:
+    name: CycloneDX SBOM preview (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Build wheel + SBOM
+        run: |
+          python -m pip install --upgrade pip build cyclonedx-bom
+          python -m build
+          python -m venv /tmp/eac-sbom
+          /tmp/eac-sbom/bin/pip install --upgrade pip
+          /tmp/eac-sbom/bin/pip install dist/*.whl cyclonedx-bom
+          /tmp/eac-sbom/bin/cyclonedx-py environment /tmp/eac-sbom/bin/python \
+            -o sbom.cdx.json --of JSON --pyproject pyproject.toml --mc-type library
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cdx-json
+          path: sbom.cdx.json
+          if-no-files-found: warn
+

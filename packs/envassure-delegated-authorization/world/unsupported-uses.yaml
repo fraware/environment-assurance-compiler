@@ -1,0 +1,5 @@
+pack_id: envassure-delegated-authorization
+unsupported_uses:
+- cross_tenant_delegation_without_policy
+- approver_observation_of_hidden_credentials
+note: Claims that depend on these behaviors must remain indeterminate.

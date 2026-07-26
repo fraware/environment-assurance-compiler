@@ -40,6 +40,7 @@ env/
 .coverage
 .coverage.*
 coverage.xml
+coverage.json
 htmlcov/
 .hypothesis/
 .tox/
@@ -61,6 +62,7 @@ desktop.ini
 .eac/
 .eac-local/
 *.eap
+examples/**/.example-out/
 
 # Secrets and local env
 .env

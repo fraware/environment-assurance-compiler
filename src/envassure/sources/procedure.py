@@ -103,6 +103,7 @@ class ProcedureAdapter:
                             extraction_method="markdown.sop.retry",
                             confidence=ConfidenceRecord(
                                 evidence_class="approved_procedure",
+                                derivation_class="inferred",
                                 extractor_certainty="medium",
                             ),
                             kind_tags=["action", "retry", "procedure"],
@@ -124,6 +125,7 @@ class ProcedureAdapter:
                             extraction_method="markdown.sop.timeout",
                             confidence=ConfidenceRecord(
                                 evidence_class="approved_procedure",
+                                derivation_class="inferred",
                                 extractor_certainty="low",
                             ),
                             kind_tags=["action", "timeout", "procedure"],
@@ -145,6 +147,7 @@ class ProcedureAdapter:
                             extraction_method="markdown.sop.idempotency",
                             confidence=ConfidenceRecord(
                                 evidence_class="approved_procedure",
+                                derivation_class="inferred",
                                 extractor_certainty="low",
                             ),
                             kind_tags=["action", "idempotency", "procedure"],

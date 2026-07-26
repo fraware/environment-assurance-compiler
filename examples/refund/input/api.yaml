@@ -1,0 +1,37 @@
+openapi: "3.0.3"
+info:
+  title: Refund Support API
+  version: "1.0.0"
+  description: OpenAPI-ish contract for submit_refund. HTTP 504 carries no state semantics.
+paths:
+  /refunds:
+    post:
+      operationId: submit_refund
+      summary: Submit a customer refund
+      security:
+        - bearerAuth: []
+      responses:
+        "202":
+          description: Accepted for processing
+        "400":
+          description: Validation failure
+        "504":
+          description: >
+            Gateway timeout. The contract does not state whether the refund
+            was committed server-side. No retry or idempotency semantics.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    RefundRequest:
+      type: object
+      required: [order_id, amount]
+      properties:
+        order_id:
+          type: string
+        amount:
+          type: number
+        reason:
+          type: string

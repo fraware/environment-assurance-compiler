@@ -1,0 +1,4 @@
+# Keep this directory for Docker COPY of the release wheel.
+# CI writes pkg.whl here; the file must not be committed.
+*
+!.gitignore

@@ -1,7 +1,7 @@
 # Build an environment from OpenAPI
 
 This guide uses the refund example at `examples/refund/`. The OpenAPI contract
-at `examples/refund/sources/api.yaml` is intentionally incomplete about HTTP 504
+at `examples/refund/input/api.yaml` is intentionally incomplete about HTTP 504
 retry semantics — EnvAssure imports that incompleteness as facts rather than
 inventing behavior.
 
@@ -27,11 +27,11 @@ eac doctor
 
 ## 2. Import the OpenAPI source
 
-From the repository root (or copy `examples/refund/sources/api.yaml` into your
+From the repository root (or copy `examples/refund/input/api.yaml` into your
 workspace `sources/` directory):
 
 ```bash
-eac import openapi examples/refund/sources/api.yaml \
+eac import openapi examples/refund/input/api.yaml \
   --path refund-ws \
   --output refund-ws/facts/openapi_facts.json \
   --json
@@ -56,9 +56,9 @@ The refund pack also has an approved SOP and an operational trace that conflict
 with the OpenAPI 504 wording:
 
 ```bash
-eac import procedure examples/refund/sources/refund-sop.md \
+eac import procedure examples/refund/input/refund-sop.md \
   --path refund-ws -o refund-ws/facts/sop_facts.json
-eac import traces examples/refund/sources/trace-0187.jsonl \
+eac import traces examples/refund/input/trace-0187.jsonl \
   --path refund-ws -o refund-ws/facts/trace_facts.json
 ```
 
@@ -81,7 +81,8 @@ for a in result.ambiguities:
 PY
 ```
 
-Open ambiguities (for example `AMB-0042` in the packaged demo) block
+Open ambiguities (hashed classic refund retry id; historical `AMB-0042` is a
+fixture alias in packaged demo docs only) block
 release-grade packs until an expert decision is recorded with `eac decide`.
 
 ## 4. Build IR from the manual SDK world

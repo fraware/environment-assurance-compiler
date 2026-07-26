@@ -5,6 +5,7 @@ from __future__ import annotations
 from envassure.diagnostics.catalog import (
     DIAGNOSTIC_CATALOG,
     DiagnosticDefinition,
+    catalog_semantic_fingerprint,
     get_definition,
     iter_catalog,
     require_documented,
@@ -26,6 +27,7 @@ __all__ = [
     "ExitCode",
     "Severity",
     "SourceRef",
+    "catalog_semantic_fingerprint",
     "format_diagnostic",
     "format_report",
     "get_definition",

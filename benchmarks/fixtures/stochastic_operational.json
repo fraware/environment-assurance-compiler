@@ -1,0 +1,15 @@
+{
+  "generator": "stochastic_operational",
+  "oracle_id": "stochastic_operational-hidden-v1",
+  "environment_id": "bench.ops.stochastic.v1",
+  "curated_count": 100,
+  "generated_count": 100,
+  "seed": 0,
+  "hidden_oracle_digest": "b1c1f5d4cc3ac05f24f39063c1427cec28564b0c15f8c848db0ca55e51bc6b54",
+  "family": "hidden_reference",
+  "concealed": true,
+  "episodes": [],
+  "metadata": {
+    "note": "Episodes materialized by envassure.benchmark.workflows.build_workflow_oracle; digest pins concealed oracle."
+  }
+}

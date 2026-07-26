@@ -16,6 +16,7 @@ class Explanation(BaseModel):
     source_ids: list[str] = Field(default_factory=list)
     decision_ids: list[str] = Field(default_factory=list)
     fact_ids: list[str] = Field(default_factory=list)
+    origin_kind: str | None = None
     related: list[str] = Field(default_factory=list)
     notes: str | None = None
 
@@ -31,6 +32,7 @@ def explain_element(world: WorldDefinition, element_id: str) -> Explanation | No
                 source_ids=state.provenance.source_ids,
                 decision_ids=state.provenance.decision_ids,
                 fact_ids=state.provenance.fact_ids,
+                origin_kind=state.provenance.origin_kind,
                 notes=state.provenance.notes,
             )
     for action in world.actions:
@@ -43,6 +45,7 @@ def explain_element(world: WorldDefinition, element_id: str) -> Explanation | No
                 source_ids=action.provenance.source_ids,
                 decision_ids=action.provenance.decision_ids,
                 fact_ids=action.provenance.fact_ids,
+                origin_kind=action.provenance.origin_kind,
                 related=related,
                 notes=action.provenance.notes,
             )
@@ -55,6 +58,7 @@ def explain_element(world: WorldDefinition, element_id: str) -> Explanation | No
                 source_ids=transition.provenance.source_ids,
                 decision_ids=transition.provenance.decision_ids,
                 fact_ids=transition.provenance.fact_ids,
+                origin_kind=transition.provenance.origin_kind,
                 related=[f"action:{transition.action_id}"],
                 notes=transition.provenance.notes,
             )
@@ -67,6 +71,7 @@ def explain_element(world: WorldDefinition, element_id: str) -> Explanation | No
                 source_ids=verifier.provenance.source_ids,
                 decision_ids=verifier.provenance.decision_ids,
                 fact_ids=verifier.provenance.fact_ids,
+                origin_kind=verifier.provenance.origin_kind,
                 notes=verifier.provenance.notes,
             )
     for ambiguity in world.ambiguities:
@@ -77,6 +82,7 @@ def explain_element(world: WorldDefinition, element_id: str) -> Explanation | No
                 summary=ambiguity.subject,
                 source_ids=ambiguity.provenance.source_ids,
                 decision_ids=[ambiguity.decision_id] if ambiguity.decision_id else [],
+                origin_kind=ambiguity.provenance.origin_kind,
                 related=[f"action:{a}" for a in ambiguity.affected_actions],
                 notes=ambiguity.residual_uncertainty,
             )
@@ -89,6 +95,7 @@ def explain_element(world: WorldDefinition, element_id: str) -> Explanation | No
                 source_ids=actor.provenance.source_ids,
                 decision_ids=actor.provenance.decision_ids,
                 fact_ids=actor.provenance.fact_ids,
+                origin_kind=actor.provenance.origin_kind,
                 related=[f"action:{a}" for a in actor.available_actions],
             )
     return None

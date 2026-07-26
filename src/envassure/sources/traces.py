@@ -24,6 +24,7 @@ class TraceAdapter:
         source = str(path)
         confidence = ConfidenceRecord(
             evidence_class="operational_trace",
+            derivation_class="observed",
             extractor_certainty="medium",
         )
         event_count = 0

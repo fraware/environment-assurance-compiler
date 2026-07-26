@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/fraware/environment-assurance-compiler/main/schemas/plugin-registry-v1.schema.json",
+  "title": "EnvAssure plugin registry v1",
+  "description": "Curated metadata for third-party and reference plugins. Consumers must never auto-install or auto-enable entries from this registry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "registry_version",
+    "updated_at",
+    "plugins"
+  ],
+  "properties": {
+    "registry_version": {
+      "const": "1",
+      "description": "Registry document format version."
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp of the last curated edit."
+    },
+    "notes": {
+      "type": "string",
+      "description": "Human-readable curation notes (not machine authority)."
+    },
+    "plugins": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/PluginEntry"
+      }
+    }
+  },
+  "$defs": {
+    "Sha256Digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "Lowercase hex digest with sha256: prefix."
+    },
+    "SemVerRange": {
+      "type": "string",
+      "minLength": 1,
+      "description": "SemVer or compatible range string (e.g. '>=0.1.0,<0.2.0')."
+    },
+    "ReviewStatus": {
+      "type": "string",
+      "enum": [
+        "submitted",
+        "schema_validated",
+        "conformance_tested",
+        "security_reviewed",
+        "reference",
+        "deprecated",
+        "revoked",
+        "rejected"
+      ]
+    },
+    "PluginKind": {
+      "type": "string",
+      "enum": [
+        "generic",
+        "source_adapter",
+        "codegen_target",
+        "runtime_adapter",
+        "proposal_provider",
+        "other"
+      ]
+    },
+    "ConformanceResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "suite",
+        "result",
+        "recorded_at"
+      ],
+      "properties": {
+        "suite": {
+          "type": "string"
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "indeterminate",
+            "not_run"
+          ]
+        },
+        "recorded_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_uri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "PluginEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "package",
+        "source",
+        "owner",
+        "kind",
+        "plugin_api_range",
+        "envassure_range",
+        "license",
+        "release_digest",
+        "conformance_results",
+        "required_permissions",
+        "review_status",
+        "limitations",
+        "last_review_date"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$",
+          "description": "Stable registry id (not necessarily the PyPI name)."
+        },
+        "package": {
+          "type": "string",
+          "description": "Distribution name (PyPI or other index)."
+        },
+        "source": {
+          "type": "string",
+          "format": "uri",
+          "description": "Canonical source repository or documentation URI."
+        },
+        "owner": {
+          "type": "string",
+          "description": "Maintainer or organization contact."
+        },
+        "kind": {
+          "$ref": "#/$defs/PluginKind"
+        },
+        "plugin_api_range": {
+          "$ref": "#/$defs/SemVerRange"
+        },
+        "envassure_range": {
+          "$ref": "#/$defs/SemVerRange"
+        },
+        "license": {
+          "type": "string",
+          "description": "SPDX license identifier preferred."
+        },
+        "release_digest": {
+          "$ref": "#/$defs/Sha256Digest"
+        },
+        "conformance_results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ConformanceResult"
+          }
+        },
+        "required_permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Declared capabilities (network, filesystem, subprocess, etc.)."
+        },
+        "review_status": {
+          "$ref": "#/$defs/ReviewStatus"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "last_review_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "homepage": {
+          "type": "string",
+          "format": "uri"
+        },
+        "entry_points": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

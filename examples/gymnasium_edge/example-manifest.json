@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "E5",
+  "slug": "gymnasium_edge",
+  "title": "Gymnasium edge (payload Dict actions)",
+  "description": "Payload-bearing Gymnasium Env with check_env and spaces.Dict action encoding.",
+  "status": "contract-complete",
+  "requires": {
+    "python": ">=3.11",
+    "envassure": "*",
+    "extras": ["gym"]
+  },
+  "entrypoints": {
+    "run": "run.sh",
+    "verify": "verify.sh"
+  },
+  "paths": {
+    "input": "input",
+    "expected": "expected"
+  },
+  "depends_on_integrations": ["gymnasium"],
+  "notes": [
+    "PettingZoo remains experimental and is not this example's target.",
+    "Requires envassure[gym] on the installed wheel PATH."
+  ]
+}

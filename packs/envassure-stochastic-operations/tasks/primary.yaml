@@ -1,0 +1,4 @@
+tasks:
+- id: envassure-stochastic-operations-primary
+  family: operations
+  intent: Exercise public baseline against concealed oracle

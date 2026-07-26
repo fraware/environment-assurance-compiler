@@ -1,0 +1,6 @@
+pack_id: envassure-transactional-refund
+unsupported_uses:
+- retry_after_timeout_without_decision
+- idempotency_key_unspecified
+- partial_refund_without_policy
+note: Claims that depend on these behaviors must remain indeterminate.

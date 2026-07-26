@@ -1,0 +1,575 @@
+# Release supply-chain: signed-tag gates → build → checksums → SBOM →
+# release-manifest → TestPyPI / PyPI (OIDC Environments) → attestations →
+# GitHub Release assets → multi-arch GHCR (Cosign + scan).
+#
+# Fail-closed. No long-lived PyPI tokens. See docs/contributing/release-process.md.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build + smoke + checksums/SBOM/manifest without publishing"
+        type: boolean
+        default: true
+      publish_testpypi:
+        description: "Publish to TestPyPI (requires testpypi Environment + trusted publisher)"
+        type: boolean
+        default: false
+      publish_pypi:
+        description: "Publish to PyPI (requires pypi Environment approval + trusted publisher)"
+        type: boolean
+        default: false
+      publish_ghcr:
+        description: "Build/push/sign GHCR image (requires ghcr Environment + digest-pinned base)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  verify-tag:
+    name: verify annotated signed tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      commit: ${{ steps.meta.outputs.commit }}
+      is_tag: ${{ steps.meta.outputs.is_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve tag / commit metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+            IS_TAG=true
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="v-dry-run"
+            IS_TAG=false
+          else
+            echo "Unsupported ref for release workflow" >&2
+            exit 1
+          fi
+          COMMIT="$(git rev-parse HEAD)"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "commit=${COMMIT}" >> "$GITHUB_OUTPUT"
+          echo "is_tag=${IS_TAG}" >> "$GITHUB_OUTPUT"
+          if [[ "${IS_TAG}" == "true" ]]; then
+            echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          else
+            # Dry-run: read package version without requiring a real tag match later
+            VER="$(python - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path("src/envassure/__init__.py").read_text(encoding="utf-8")
+          m = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', text, re.M)
+          assert m, "__version__ missing"
+          print(m.group(1))
+          PY
+          )"
+            echo "version=${VER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fail closed unless annotated + signed (tags only)
+        if: steps.meta.outputs.is_tag == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.meta.outputs.tag }}"
+          # Annotated: peeled object exists and is a tag object
+          OBJECT_TYPE="$(git cat-file -t "$TAG")"
+          if [[ "$OBJECT_TYPE" != "tag" ]]; then
+            echo "error: $TAG is not an annotated tag (got $OBJECT_TYPE)" >&2
+            exit 1
+          fi
+          # Signed: verify-tag must succeed (GPG or SSH signing)
+          if ! git verify-tag "$TAG"; then
+            echo "error: git verify-tag failed for $TAG (unsigned or untrusted key)" >&2
+            exit 1
+          fi
+          # Reachable from main
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$TAG" origin/main; then
+            echo "error: tag $TAG is not an ancestor of origin/main" >&2
+            exit 1
+          fi
+          echo "tag ok: annotated, signed, on main history"
+
+      - uses: actions/setup-python@v5
+        if: steps.meta.outputs.is_tag == 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Tag / version gate
+        if: steps.meta.outputs.is_tag == 'true'
+        run: python scripts/check_tag_version.py --tag "${{ steps.meta.outputs.tag }}"
+
+  build:
+    name: build / smoke / SBOM / manifest
+    needs: verify-tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    outputs:
+      version: ${{ needs.verify-tag.outputs.version }}
+      tag: ${{ needs.verify-tag.outputs.tag }}
+      commit: ${{ needs.verify-tag.outputs.commit }}
+      is_tag: ${{ needs.verify-tag.outputs.is_tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify-tag.outputs.commit }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install toolchain + package (editable for gates)
+        run: |
+          python -m pip install --upgrade pip build
+          pip install -e ".[dev]"
+
+      - name: Lint / type / focused tests
+        run: |
+          ruff check src tests scripts
+          ruff format --check src tests scripts
+          mypy
+          pytest -q tests/test_ir.py tests/test_pack_adversarial.py --cov=envassure --cov-fail-under=0
+
+      - name: Build sdist and wheel
+        run: |
+          python -m build
+          ls -la dist
+
+      - name: Fresh-venv wheel install + package acceptance
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/eac-wheel
+          /tmp/eac-wheel/bin/pip install --upgrade pip
+          /tmp/eac-wheel/bin/pip install dist/*.whl
+          /tmp/eac-wheel/bin/eac --version
+          /tmp/eac-wheel/bin/eac init /tmp/eac-ws --name release-smoke
+          /tmp/eac-wheel/bin/eac doctor --path /tmp/eac-ws
+          /tmp/eac-wheel/bin/python scripts/check_package_acceptance.py --dist-dir dist
+          # One example smoke from installed wheel
+          /tmp/eac-wheel/bin/eac build-ir --module examples/counter/world.py -o /tmp/counter-ir.json --force
+          /tmp/eac-wheel/bin/eac lint /tmp/counter-ir.json
+
+      - name: CycloneDX SBOM
+        run: |
+          python -m pip install --upgrade cyclonedx-bom
+          python -m venv /tmp/eac-sbom
+          /tmp/eac-sbom/bin/pip install --upgrade pip
+          /tmp/eac-sbom/bin/pip install dist/*.whl
+          /tmp/eac-sbom/bin/pip install cyclonedx-bom
+          /tmp/eac-sbom/bin/cyclonedx-py environment /tmp/eac-sbom/bin/python \
+            -o dist/envassure.cdx.json \
+            --of JSON \
+            --pyproject pyproject.toml \
+            --mc-type library
+          /tmp/eac-sbom/bin/cyclonedx-py environment /tmp/eac-sbom/bin/python \
+            -o dist/envassure.cdx.xml \
+            --of XML \
+            --pyproject pyproject.toml \
+            --mc-type library
+
+      - name: SHA-256SUMS + release-manifest
+        env:
+          TAG: ${{ needs.verify-tag.outputs.tag }}
+          COMMIT: ${{ needs.verify-tag.outputs.commit }}
+          IS_TAG: ${{ needs.verify-tag.outputs.is_tag }}
+          VERSION: ${{ needs.verify-tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          python scripts/write_sha256sums.py dist --out dist/SHA-256SUMS
+          if [[ "${IS_TAG}" == "true" ]]; then
+            MANIFEST_TAG="${TAG}"
+          else
+            # Dry-run: synthesize a tag name matching package version for schema
+            MANIFEST_TAG="v${VERSION}"
+          fi
+          python scripts/generate_release_manifest.py \
+            --dist-dir dist \
+            --tag "${MANIFEST_TAG}" \
+            --commit "${COMMIT}" \
+            --docs-version "${VERSION}" \
+            --out dist/release-manifest.json
+          # Re-hash after manifest lands
+          python scripts/write_sha256sums.py dist --out dist/SHA-256SUMS \
+            --glob '*.whl' --glob '*.tar.gz' --glob '*.cdx.json' --glob '*.cdx.xml' \
+            --glob 'release-manifest.json'
+          # Refresh manifest sha256sums field
+          python scripts/generate_release_manifest.py \
+            --dist-dir dist \
+            --tag "${MANIFEST_TAG}" \
+            --commit "${COMMIT}" \
+            --docs-version "${VERSION}" \
+            --out dist/release-manifest.json
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: envassure-release-dist
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/envassure.cdx.json
+            dist/envassure.cdx.xml
+            dist/SHA-256SUMS
+            dist/release-manifest.json
+          if-no-files-found: error
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.whl
+            dist/*.tar.gz
+            dist/envassure.cdx.json
+            dist/envassure.cdx.xml
+            dist/SHA-256SUMS
+            dist/release-manifest.json
+
+      - name: Upload assets to GitHub Release
+        if: needs.verify-tag.outputs.is_tag == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.verify-tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # Create release if missing (annotated tag push may not create one)
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --notes "Automated release assets for ${TAG}." --verify-tag
+          fi
+          gh release upload "$TAG" \
+            dist/*.whl \
+            dist/*.tar.gz \
+            dist/envassure.cdx.json \
+            dist/envassure.cdx.xml \
+            dist/SHA-256SUMS \
+            dist/release-manifest.json \
+            --clobber
+
+  publish-testpypi:
+    name: publish TestPyPI
+    needs: build
+    if: >
+      always() && needs.build.result == 'success' &&
+      !contains(needs.build.outputs.version, '.dev') &&
+      (
+        (needs.build.outputs.is_tag == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.publish_testpypi)
+      )
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: envassure-release-dist
+          path: dist
+      - name: Publish to TestPyPI (OIDC trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist
+          skip-existing: true
+          verbose: true
+
+  publish-pypi:
+    name: publish PyPI
+    needs: [build, publish-testpypi]
+    if: >
+      always() && needs.build.result == 'success' &&
+      !contains(needs.build.outputs.version, '.dev') &&
+      (
+        (needs.build.outputs.is_tag == 'true' && needs.publish-testpypi.result == 'success') ||
+        (
+          github.event_name == 'workflow_dispatch' &&
+          inputs.publish_pypi &&
+          (needs.publish-testpypi.result == 'success' || needs.publish-testpypi.result == 'skipped')
+        )
+      )
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: envassure-release-dist
+          path: dist
+      - name: Publish to PyPI (OIDC trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          verbose: true
+
+  ghcr:
+    name: GHCR multi-arch / Cosign / scan
+    needs: build
+    if: >
+      always() && needs.build.result == 'success' &&
+      !contains(needs.build.outputs.version, '.dev') &&
+      (
+        (needs.build.outputs.is_tag == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.publish_ghcr)
+      )
+    runs-on: ubuntu-latest
+    environment: ghcr
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.commit }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: envassure-release-dist
+          path: dist
+
+      - name: Resolve digest-pinned base image
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          LINE="$(grep -v '^#' docker/base-image.lock | grep -v '^[[:space:]]*$' | tail -n1)"
+          if [[ "$LINE" != *@sha256:* ]]; then
+            echo "error: docker/base-image.lock must pin @sha256: digest" >&2
+            exit 1
+          fi
+          if [[ "$LINE" == *@sha256:UNRESOLVED ]]; then
+            echo "error: base image digest is UNRESOLVED — refresh docker/base-image.lock before GHCR publish" >&2
+            exit 1
+          fi
+          echo "image=${LINE}" >> "$GITHUB_OUTPUT"
+
+      - name: Stage wheel for Docker context
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docker/context
+          WHL="$(ls dist/*.whl)"
+          test "$(echo "$WHL" | wc -l)" -eq 1
+          cp "$WHL" docker/context/pkg.whl
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/fraware/envassure
+          tags: |
+            type=raw,value=${{ needs.build.outputs.version }}
+            type=raw,value=0.2,enable=${{ startsWith(needs.build.outputs.version, '0.2.') }}
+            type=raw,value=beta,enable=${{ contains(needs.build.outputs.version, 'b') }}
+            type=sha,prefix=sha-,format=short
+          flavor: |
+            latest=false
+
+      - name: Build and push multi-arch
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            BASE_IMAGE=${{ steps.base.outputs.image }}
+            VERSION=${{ needs.build.outputs.version }}
+            REVISION=${{ needs.build.outputs.commit }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Cosign keyless sign
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes "ghcr.io/fraware/envassure@${DIGEST}"
+
+      - name: Trivy image scan (fail on CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/fraware/envassure@${{ steps.build.outputs.digest }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: Container smoke
+        run: |
+          set -euo pipefail
+          docker run --rm "ghcr.io/fraware/envassure@${{ steps.build.outputs.digest }}" --version
+          docker run --rm "ghcr.io/fraware/envassure@${{ steps.build.outputs.digest }}" doctor
+
+  ghcr-openenv:
+    name: GHCR OpenEnv image / Cosign / scan
+    needs: build
+    if: >
+      always() && needs.build.result == 'success' &&
+      !contains(needs.build.outputs.version, '.dev') &&
+      (
+        (needs.build.outputs.is_tag == 'true') ||
+        (github.event_name == 'workflow_dispatch' && inputs.publish_ghcr)
+      )
+    runs-on: ubuntu-latest
+    environment: ghcr
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.commit }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: envassure-release-dist
+          path: dist
+
+      - name: Resolve digest-pinned base image
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          LINE="$(grep -v '^#' docker/base-image.lock | grep -v '^[[:space:]]*$' | tail -n1)"
+          if [[ "$LINE" != *@sha256:* ]]; then
+            echo "error: docker/base-image.lock must pin @sha256: digest" >&2
+            exit 1
+          fi
+          if [[ "$LINE" == *@sha256:UNRESOLVED ]]; then
+            echo "error: base image digest is UNRESOLVED — refresh docker/base-image.lock before GHCR publish" >&2
+            exit 1
+          fi
+          echo "image=${LINE}" >> "$GITHUB_OUTPUT"
+
+      - name: Stage wheel for Docker context
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docker/context
+          WHL="$(ls dist/*.whl)"
+          test "$(echo "$WHL" | wc -l)" -eq 1
+          cp "$WHL" docker/context/pkg.whl
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata (openenv)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/fraware/envassure-openenv
+          tags: |
+            type=raw,value=${{ needs.build.outputs.version }}
+            type=raw,value=0.2,enable=${{ startsWith(needs.build.outputs.version, '0.2.') }}
+            type=raw,value=beta,enable=${{ contains(needs.build.outputs.version, 'b') }}
+            type=sha,prefix=sha-,format=short
+          flavor: |
+            latest=false
+
+      - name: Build and push OpenEnv multi-arch
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.openenv
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            BASE_IMAGE=${{ steps.base.outputs.image }}
+            VERSION=${{ needs.build.outputs.version }}
+            REVISION=${{ needs.build.outputs.commit }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: true
+          sbom: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Cosign keyless sign (openenv)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          cosign sign --yes "ghcr.io/fraware/envassure-openenv@${DIGEST}"
+
+      - name: Trivy image scan (fail on CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ghcr.io/fraware/envassure-openenv@${{ steps.build.outputs.digest }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL
+          ignore-unfixed: true
+
+      - name: OpenEnv container smoke
+        run: |
+          set -euo pipefail
+          docker run --rm "ghcr.io/fraware/envassure-openenv@${{ steps.build.outputs.digest }}" --version
+          docker run --rm --entrypoint python \
+            "ghcr.io/fraware/envassure-openenv@${{ steps.build.outputs.digest }}" \
+            -c "import openenv, importlib.metadata as m; assert m.version('openenv')=='0.4.1'"

@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://envassure.dev/schemas/release-manifest-1.json",
+  "title": "EnvAssureReleaseManifest",
+  "description": "Compiler release manifest (§4.3): coordinates and digests for a single tagged release. Fail closed on missing required digests for published artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project",
+    "release_version",
+    "tag",
+    "commit",
+    "created_at",
+    "python",
+    "ir_version",
+    "plugin_api_version",
+    "artifacts",
+    "known_limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Release-manifest schema major version."
+    },
+    "project": {
+      "type": "string",
+      "const": "envassure"
+    },
+    "release_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "PEP 440 package version (must match tag without leading v)."
+    },
+    "tag": {
+      "type": "string",
+      "pattern": "^v.+",
+      "description": "Annotated git tag, e.g. v0.2.0b1."
+    },
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Full commit SHA of the tagged release."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp when the manifest was generated."
+    },
+    "python": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requires", "build"],
+      "properties": {
+        "requires": {
+          "type": "string",
+          "description": "Requires-Python metadata, e.g. >=3.11."
+        },
+        "build": {
+          "type": "string",
+          "description": "Python version string used to build this release."
+        }
+      }
+    },
+    "ir_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Write-current Environment IR version."
+    },
+    "plugin_api_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "docs_version": {
+      "type": ["string", "null"],
+      "description": "Docs alias / mike version published with this release."
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wheel", "sdist"],
+      "properties": {
+        "wheel": { "$ref": "#/$defs/fileDigest" },
+        "sdist": { "$ref": "#/$defs/fileDigest" },
+        "sbom_cdx_json": { "$ref": "#/$defs/fileDigest" },
+        "sbom_cdx_xml": { "$ref": "#/$defs/fileDigest" },
+        "sha256sums": { "$ref": "#/$defs/fileDigest" },
+        "repro_bundle": {
+          "oneOf": [
+            { "type": "null" },
+            { "$ref": "#/$defs/fileDigest" }
+          ]
+        }
+      }
+    },
+    "container": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["registry", "image", "tags", "digest"],
+          "properties": {
+            "registry": { "type": "string", "minLength": 1 },
+            "image": { "type": "string", "minLength": 1 },
+            "tags": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 },
+              "minItems": 1
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "platforms": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["linux/amd64", "linux/arm64"]
+            }
+          }
+        }
+      ]
+    },
+    "integrations": {
+      "type": "object",
+      "description": "Pinned integration versions present in this release (null/absent = not yet qualified).",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "null" },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status"],
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["qualified", "experimental", "scaffold", "absent"]
+              },
+              "extra": { "type": ["string", "null"] },
+              "upstream_pin": { "type": ["string", "null"] },
+              "notes": { "type": ["string", "null"] }
+            }
+          }
+        ]
+      }
+    },
+    "packs": {
+      "type": "array",
+      "description": "Benchmark / environment pack release coordinates.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "version"],
+        "properties": {
+          "name": { "type": "string" },
+          "version": { "type": "string" },
+          "digest": {
+            "type": ["string", "null"],
+            "pattern": "^(sha256:[0-9a-f]{64})?$"
+          },
+          "uri": { "type": ["string", "null"] }
+        }
+      },
+      "default": []
+    },
+    "project_urls": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Copy of pyproject [project.urls] verified at release time."
+    },
+    "known_limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "description": "Explicit residual limitations for this release (never empty — fail closed)."
+    }
+  },
+  "$defs": {
+    "fileDigest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Basename or release-relative path."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
