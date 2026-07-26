@@ -48,7 +48,7 @@ print("ok", len(expected["members"]), "members")
 PY
 
 if command -v opa >/dev/null 2>&1; then
-  opa fmt --check "${BUNDLE}/policy.rego" "${BUNDLE}/policy_test.rego"
+  opa fmt --list --fail "${BUNDLE}/policy.rego" "${BUNDLE}/policy_test.rego"
   opa test --fail-on-empty "${BUNDLE}"
 else
   echo "notice: opa binary not on PATH; bundle member checks only"

@@ -92,7 +92,7 @@ def obligations_test(
     skip_fmt: bool = typer.Option(False, "--skip-fmt"),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Run ``opa fmt --check`` and ``opa test --fail-on-empty`` on a bundle."""
+    """Run ``opa fmt --list --fail`` and ``opa test --fail-on-empty`` on a bundle."""
     try:
         opa = require_opa_binary()
     except OpaBackendError as exc:
