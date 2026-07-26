@@ -1,8 +1,8 @@
-"""Milestone 1 runtime correctness tests (EAC-R01–R07)."""
+"""Milestone 1 runtime correctness tests (EAC-R01-R07)."""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from hypothesis import given, settings
@@ -153,7 +153,9 @@ def test_expression_ast_paths_and_payload() -> None:
     ctx = EvalContext(state={"count": 2}, payload={"delta": 3})
     assert evaluate(expr, ctx) == 5
     assert evaluate_bool(parse_expression("count == 2"), ctx) is True
-    assert evaluate_bool(parse_expression('actor.roles contains "admin"'), EvalContext(actor={"roles": ["admin"]}))
+    assert evaluate_bool(
+        parse_expression('actor.roles contains "admin"'), EvalContext(actor={"roles": ["admin"]})
+    )
 
 
 def test_expression_fail_closed_unsupported() -> None:
@@ -219,7 +221,7 @@ def test_auth_tenant_revocation_expiry_scope() -> None:
     )
     assert bad_tenant.decision == AuthDecision.DENY
 
-    now = datetime(2026, 6, 1, tzinfo=timezone.utc).isoformat()
+    now = datetime(2026, 6, 1, tzinfo=UTC).isoformat()
     expired = evaluate_authorization(
         "temporal:expires:2026-01-01T00:00:00+00:00",
         actor=tenant_actor,
@@ -341,9 +343,9 @@ class _OkExecutor:
         attempt: int = 1,
         idempotency_key: str | None = None,
     ) -> EffectReceipt:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         return EffectReceipt(
             intent_id=intent.id,
             intent_digest=intent_digest(intent),

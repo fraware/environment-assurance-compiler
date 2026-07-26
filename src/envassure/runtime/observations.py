@@ -279,8 +279,7 @@ def validate_observation_projections(
                 make_diagnostic(
                     "EAC5005",
                     reason=(
-                        f"actor {actor.id!r} references unknown observation "
-                        f"projection {proj_id!r}"
+                        f"actor {actor.id!r} references unknown observation projection {proj_id!r}"
                     ),
                     subject=actor.id,
                     affected_artifacts=[f"actor:{actor.id}"],
@@ -421,9 +420,8 @@ def probe_observation_leaks(
     leaked: list[str] = []
     for path in forbidden_paths:
         root = path.split(".", 1)[0]
-        if root in observation or path in observation:
-            if root not in leaked:
-                leaked.append(root)
+        if (root in observation or path in observation) and root not in leaked:
+            leaked.append(root)
     return leaked
 
 

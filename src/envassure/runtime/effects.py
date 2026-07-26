@@ -6,7 +6,12 @@ from typing import Any
 
 from envassure.expressions.diagnostics import ExpressionError
 from envassure.expressions.evaluate import EvalContext, evaluate, evaluate_bool
-from envassure.expressions.parser import coerce_literal, parse_effect, parse_expression, parse_structured
+from envassure.expressions.parser import (
+    coerce_literal,
+    parse_effect,
+    parse_expression,
+    parse_structured,
+)
 from envassure.expressions.types import infer_type
 from envassure.expressions.validate import validate_expression
 from envassure.ir.primitives import ConstraintExpr

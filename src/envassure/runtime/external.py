@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from envassure.canonical import canonical_hash
 from envassure.runtime.events import SideEffectIntent
-
 
 EffectStatus = Literal[
     "recorded",
@@ -20,8 +19,8 @@ EffectStatus = Literal[
 ]
 
 
-class EffectReceipt(BaseModel):
-    """Immutable receipt for one external-effect attempt."""
+class SideEffectResult(BaseModel):
+    """Immutable result for one external-effect attempt (authoritative public name)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -40,6 +39,10 @@ class EffectReceipt(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict)
 
 
+# Backward-compatible alias for one release (prefer SideEffectResult).
+EffectReceipt = SideEffectResult
+
+
 @runtime_checkable
 class ExternalEffectExecutor(Protocol):
     """Injected boundary for live external effects (never fabricated)."""
@@ -56,7 +59,7 @@ class ExternalEffectExecutor(Protocol):
         *,
         attempt: int = 1,
         idempotency_key: str | None = None,
-    ) -> EffectReceipt:
+    ) -> SideEffectResult:
         """Execute or reject *intent*; must return a typed receipt."""
         ...
 
@@ -76,11 +79,11 @@ def recorded_receipt(
     intent: SideEffectIntent,
     *,
     attempt: int = 1,
-) -> EffectReceipt:
+) -> SideEffectResult:
     """Default record-only receipt (no live execution claimed)."""
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     digest = intent_digest(intent)
-    return EffectReceipt(
+    return SideEffectResult(
         intent_id=intent.id,
         intent_digest=digest,
         executor_id="record-only",
@@ -106,9 +109,9 @@ class RejectingExecutor:
         *,
         attempt: int = 1,
         idempotency_key: str | None = None,
-    ) -> EffectReceipt:
-        now = datetime.now(timezone.utc).isoformat()
-        return EffectReceipt(
+    ) -> SideEffectResult:
+        now = datetime.now(UTC).isoformat()
+        return SideEffectResult(
             intent_id=intent.id,
             intent_digest=intent_digest(intent),
             executor_id=self.executor_id,

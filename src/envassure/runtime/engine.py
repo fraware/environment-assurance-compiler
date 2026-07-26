@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import random
-import uuid
 from typing import Any
 
 from envassure import __version__ as RUNTIME_VERSION
@@ -17,14 +16,29 @@ from envassure.ir.models import (
     TransitionRule,
     WorldDefinition,
 )
-from envassure.ir.primitives import DeterminismClass, IR_VERSION
+from envassure.ir.primitives import IR_VERSION, DeterminismClass
 from envassure.runtime.authorization import AuthDecision, evaluate_authorization
 from envassure.runtime.effects import apply_effect, coerce_literal, evaluate_constraint
-from envassure.runtime.events import Event, SideEffectIntent, StepResult, TransactionReceipt
+from envassure.runtime.events import (
+    Event,
+    SideEffectIntent,
+    StepResult,
+    TerminalRecord,
+    TransactionReceipt,
+    TransitionDecision,
+    reconstruct_state,
+    validate_event_log,
+)
 from envassure.runtime.external import (
-    EffectReceipt,
     ExternalEffectExecutor,
+    SideEffectResult,
     recorded_receipt,
+)
+from envassure.runtime.intent_ids import (
+    canonical_effect_payload_digest,
+    make_intent_id,
+    make_transaction_id,
+    seed_derived_episode_id,
 )
 from envassure.runtime.observations import (
     CompiledObservation,
@@ -33,7 +47,12 @@ from envassure.runtime.observations import (
     project_state,
 )
 from envassure.runtime.outcomes import StepOutcome
-from envassure.runtime.payloads import PayloadValidationError, redact_payload, validate_payload
+from envassure.runtime.payloads import (
+    PayloadValidationError,
+    payload_digest,
+    redact_payload,
+    validate_payload,
+)
 from envassure.runtime.snapshot import SNAPSHOT_SCHEMA_VERSION, Snapshot
 
 
@@ -93,12 +112,15 @@ class EventSourcedEnvironment:
         self._event_head = ""
         self._event_log: list[Event] = []
         self._recorded_intents: list[SideEffectIntent] = []
-        self._effect_receipts: list[EffectReceipt] = []
+        self._effect_receipts: list[SideEffectResult] = []
+        self._transition_decisions: list[TransitionDecision] = []
         self._task_state: dict[str, Any] = {}
         self._pending_transactions: list[dict[str, Any]] = []
         self._episode_id: str | None = None
+        self._initial_state_at_reset: dict[str, Any] = {}
         self._terminal = False
         self._truncated = False
+        self._terminal_record: TerminalRecord | None = None
         self._initialized = False
         self._state_fingerprint: str | None = None
         self._world_digest = canonical_hash(self._world.content_dict())
@@ -137,6 +159,11 @@ class EventSourcedEnvironment:
     def live_external_effects(self) -> bool:
         return self._live_external_effects
 
+    @property
+    def terminal_record(self) -> TerminalRecord | None:
+        """Durable terminal / truncated artifact for the current episode, if any."""
+        return self._terminal_record
+
     def reset(
         self,
         *,
@@ -149,7 +176,10 @@ class EventSourcedEnvironment:
             seed = int(options.get("seed", 0))
         self._seed = seed
         self._rng = random.Random(seed)
-        self._episode_id = str(options.get("episode_id") or uuid.uuid4())
+        episode_opt = options.get("episode_id")
+        self._episode_id = (
+            str(episode_opt) if episode_opt is not None else seed_derived_episode_id(seed)
+        )
         self._clock = 0
         self._sequence = 0
         self._audit_head = ""
@@ -157,11 +187,13 @@ class EventSourcedEnvironment:
         self._event_log = []
         self._recorded_intents = []
         self._effect_receipts = []
+        self._transition_decisions = []
         self._scheduled_events = []
         self._stubs = dict(options.get("stubs") or {})
         self._pending_transactions = []
         self._terminal = False
         self._truncated = False
+        self._terminal_record = None
         self._task_state = {
             "task_id": options.get("task_id"),
             "steps": 0,
@@ -179,7 +211,9 @@ class EventSourcedEnvironment:
                     break
 
         self._authoritative_state = self._initial_state(options.get("initial_state"))
-        actor_overrides = options.get("actors") if isinstance(options.get("actors"), dict) else {}
+        self._initial_state_at_reset = copy.deepcopy(self._authoritative_state)
+        actors_opt = options.get("actors")
+        actor_overrides: dict[str, Any] = dict(actors_opt) if isinstance(actors_opt, dict) else {}
         self._actor_runtime = {}
         for actor in self._world.actors:
             view = {
@@ -213,7 +247,9 @@ class EventSourcedEnvironment:
         self._ensure_initialized()
         self._check_strict_integrity()
         payload = dict(payload or {})
-        tx_id = f"tx-{self._sequence + 1}-{uuid.uuid4().hex[:8]}"
+        transition_index = self._sequence
+        run_id = self._episode_id or seed_derived_episode_id(self._seed or 0)
+        tx_id = make_transaction_id(run_id=run_id, transition_index=transition_index)
         seq_start = self._sequence
 
         if self._terminal:
@@ -316,14 +352,14 @@ class EventSourcedEnvironment:
         actor_view = self._actor_runtime[actor_id]
 
         # --- authorize ---
-        auth_failure = self._check_authorization(action, actor, actor_view, payload, tx_id, seq_start)
+        auth_failure = self._check_authorization(
+            action, actor, actor_view, payload, tx_id, seq_start
+        )
         if auth_failure is not None:
             return auth_failure
 
         # --- preconditions ---
-        precond_failure = self._check_preconditions(
-            action, actor_view, payload, tx_id, seq_start
-        )
+        precond_failure = self._check_preconditions(action, actor_view, payload, tx_id, seq_start)
         if precond_failure is not None:
             return precond_failure
 
@@ -438,28 +474,40 @@ class EventSourcedEnvironment:
         intent_names = list(branch.side_effect_intents) or list(action.external_side_effects)
         staged_intents: list[SideEffectIntent] = []
         for idx, kind in enumerate(intent_names):
-            # Monotonic unique ids even when domain event types were empty defaults.
-            intent_seq = next_seq if staged_events else next_seq + 1
+            intent_payload = {
+                "action_id": action_id,
+                "actor_id": actor_id,
+                "transaction_id": tx_id,
+            }
+            effect_digest = canonical_effect_payload_digest(
+                kind=kind,
+                target=None,
+                payload=intent_payload,
+            )
+            intent_id = make_intent_id(
+                run_id=run_id,
+                transition_index=transition_index,
+                actor_id=actor_id,
+                action_id=action_id,
+                effect_index=idx,
+                canonical_effect_payload_digest=effect_digest,
+            )
             staged_intents.append(
                 SideEffectIntent(
-                    id=f"sei-{intent_seq}-{idx}",
+                    id=intent_id,
                     kind=kind,
                     target=None,
-                    payload={
-                        "action_id": action_id,
-                        "actor_id": actor_id,
-                        "transaction_id": tx_id,
-                    },
+                    payload=intent_payload,
                     executed=False,
                     recorded_only=True,
                 )
             )
 
         # --- live external execution (optional, requires executor) ---
-        receipts: list[EffectReceipt] = []
+        receipts: list[SideEffectResult] = []
         if staged_intents and self._live_external_effects:
             assert self._external_executor is not None
-            for intent in staged_intents:
+            for effect_idx, intent in enumerate(staged_intents):
                 receipt = self._external_executor.execute(intent, idempotency_key=intent.id)
                 receipts.append(receipt)
                 intent.receipt = receipt.model_dump(mode="json")
@@ -470,12 +518,38 @@ class EventSourcedEnvironment:
                     intent.recorded_only = True
                     intent.executed = False
                 else:
+                    # Failed live effects must not disappear: persist intents + results.
+                    for skipped in staged_intents[effect_idx + 1 :]:
+                        skip_receipt = SideEffectResult(
+                            intent_id=skipped.id,
+                            intent_digest=canonical_hash(
+                                {
+                                    "id": skipped.id,
+                                    "kind": skipped.kind,
+                                    "target": skipped.target,
+                                    "payload": skipped.payload,
+                                }
+                            ),
+                            executor_id=self._external_executor.executor_id,
+                            executor_version=self._external_executor.executor_version,
+                            attempt=1,
+                            idempotency_key=skipped.id,
+                            started_at=receipt.started_at,
+                            finished_at=receipt.finished_at,
+                            status="skipped",
+                            error="skipped after prior external effect failure",
+                        )
+                        skipped.receipt = skip_receipt.model_dump(mode="json")
+                        receipts.append(skip_receipt)
+                    self._recorded_intents.extend(staged_intents)
+                    self._effect_receipts.extend(receipts)
                     return self._finish_attempt(
                         actor_id=actor_id,
                         action_id=action_id,
                         payload=payload,
                         tx_id=tx_id,
                         seq_start=seq_start,
+                        transition_index=transition_index,
                         outcome=StepOutcome.EXTERNAL_FAILURE,
                         reason_code="external_effect_failed",
                         failure_id="external_failure",
@@ -483,6 +557,9 @@ class EventSourcedEnvironment:
                         reason=receipt.error or f"external effect {intent.kind!r} failed",
                         mutate=False,
                         audit_event_type="action.external_failure",
+                        side_effect_intents=staged_intents,
+                        branch_id=branch.id,
+                        allowed=True,
                     )
         else:
             for intent in staged_intents:
@@ -513,35 +590,58 @@ class EventSourcedEnvironment:
         truncated = False
         terminal = bool(branch.terminal)
         outcome = StepOutcome.SUCCESS
+        reason_code = "committed"
         if isinstance(horizon, int) and self._task_state["steps"] >= horizon:
             truncated = True
             terminal = True
             outcome = StepOutcome.TRUNCATED
+            reason_code = "truncated"
         if self._goal_reached():
             terminal = True
-        self._terminal = terminal
-        self._truncated = truncated
-        self._task_state["terminal"] = terminal
-        self._task_state["truncated"] = truncated
+        self._apply_terminal(
+            terminal=terminal,
+            truncated=truncated,
+            reason_code=reason_code,
+        )
         self._refresh_fingerprint()
 
         evidence = [
             {"kind": e, "action_id": action_id, "sequence": self._sequence}
             for e in (rule.emitted_evidence or action.evidence_emitted)
         ]
-        receipt = TransactionReceipt(
+        self._record_decision(
+            TransitionDecision(
+                transaction_id=tx_id,
+                actor_id=actor_id,
+                action_id=action_id,
+                outcome=outcome.value,
+                reason_code=reason_code,
+                branch_id=branch.id,
+                allowed=True,
+                transition_index=transition_index,
+                payload_digest=payload_digest(redacted_payload),
+                auth_digest=canonical_hash(
+                    {
+                        "action_id": action_id,
+                        "actor_id": actor_id,
+                        "authorization": action.authorization,
+                    }
+                ),
+            )
+        )
+        tx_receipt = TransactionReceipt(
             transaction_id=tx_id,
             sequence_start=seq_start,
             sequence_end=self._sequence,
             outcome=outcome,
-            reason_code="committed" if outcome == StepOutcome.SUCCESS else "truncated",
+            reason_code=reason_code,
             mutated_authoritative_state=True,
             event_ids=[e.id for e in committed_events],
             intent_ids=[i.id for i in staged_intents],
             audit_head=self._audit_head,
             state_digest=self._digests()["state"],
         )
-        self._pending_transactions.append(receipt.model_dump(mode="json"))
+        self._pending_transactions.append(tx_receipt.model_dump(mode="json"))
 
         return StepResult(
             outcome=outcome,
@@ -551,16 +651,17 @@ class EventSourcedEnvironment:
             evidence=evidence,
             terminal=terminal,
             truncated=truncated,
-            reason_code=receipt.reason_code,
+            reason_code=tx_receipt.reason_code,
             info={
                 "rule_id": rule.id,
                 "branch_id": branch.id,
                 "determinism": self._world.determinism,
-                "reason_code": receipt.reason_code,
+                "reason_code": tx_receipt.reason_code,
                 "transaction_id": tx_id,
+                "transition_index": transition_index,
             },
-            state_digest=receipt.state_digest,
-            transaction=receipt,
+            state_digest=tx_receipt.state_digest,
+            transaction=tx_receipt,
         )
 
     def state(self) -> dict[str, Any]:
@@ -610,6 +711,7 @@ class EventSourcedEnvironment:
             config_digest=self._config_digest,
             sequence=self._sequence,
             authoritative_state=copy.deepcopy(self._authoritative_state),
+            initial_state_at_reset=copy.deepcopy(self._initial_state_at_reset),
             actors=copy.deepcopy(self._actor_runtime),
             scheduled_events=copy.deepcopy(self._scheduled_events),
             stubs=copy.deepcopy(self._stubs),
@@ -622,8 +724,12 @@ class EventSourcedEnvironment:
             pending_transactions=copy.deepcopy(self._pending_transactions),
             event_log=copy.deepcopy(self._event_log),
             recorded_intents=copy.deepcopy(self._recorded_intents),
+            side_effect_results=copy.deepcopy(self._effect_receipts),
             seed=self._seed,
             episode_id=self._episode_id,
+            terminal_record=self._terminal_record.model_copy(deep=True)
+            if self._terminal_record is not None
+            else None,
             terminal=self._terminal,
             truncated=self._truncated,
         )
@@ -636,13 +742,15 @@ class EventSourcedEnvironment:
                 f"snapshot environment_id {snapshot.environment_id!r} does not match "
                 f"{self._world.environment_id!r}"
             )
-        if snapshot.schema_version and snapshot.schema_version != SNAPSHOT_SCHEMA_VERSION:
-            # Accept legacy v1 snapshots that omit schema_version only when empty.
-            if snapshot.schema_version not in {SNAPSHOT_SCHEMA_VERSION, "1", ""}:
-                raise RuntimeError_(
-                    f"incompatible snapshot schema_version {snapshot.schema_version!r}; "
-                    f"expected {SNAPSHOT_SCHEMA_VERSION!r}"
-                )
+        if (
+            snapshot.schema_version
+            and snapshot.schema_version != SNAPSHOT_SCHEMA_VERSION
+            and snapshot.schema_version not in {SNAPSHOT_SCHEMA_VERSION, "1", ""}
+        ):
+            raise RuntimeError_(
+                f"incompatible snapshot schema_version {snapshot.schema_version!r}; "
+                f"expected {SNAPSHOT_SCHEMA_VERSION!r}"
+            )
         if snapshot.world_digest and snapshot.world_digest != self._world_digest:
             raise RuntimeError_(
                 f"snapshot world_digest mismatch: snapshot={snapshot.world_digest!r} "
@@ -671,7 +779,33 @@ class EventSourcedEnvironment:
             if snapshot.digests.get("state") and snapshot.digests["state"] != state_digest:
                 raise RuntimeError_("snapshot state digest mismatch")
 
+        validate_event_log(snapshot.event_log)
+
+        if snapshot.initial_state_at_reset:
+            initial_at_reset = copy.deepcopy(snapshot.initial_state_at_reset)
+        elif not snapshot.event_log:
+            initial_at_reset = copy.deepcopy(snapshot.authoritative_state)
+        else:
+            raise RuntimeError_(
+                "snapshot missing initial_state_at_reset required to reconstruct "
+                "authoritative state from a non-empty event log; re-snapshot with "
+                "the current runtime"
+            )
+
+        reconstructed = reconstruct_state(initial_at_reset, snapshot.event_log)
+        if reconstructed != snapshot.authoritative_state:
+            raise RuntimeError_(
+                "snapshot authoritative_state diverges from event-log reconstruction"
+            )
+        if snapshot.digests.get("state"):
+            reconstruct_digest = canonical_hash(reconstructed)
+            if reconstruct_digest != snapshot.digests["state"]:
+                raise RuntimeError_(
+                    "reconstructed state digest does not match snapshot digests['state']"
+                )
+
         self._authoritative_state = copy.deepcopy(snapshot.authoritative_state)
+        self._initial_state_at_reset = initial_at_reset
         self._actor_runtime = copy.deepcopy(snapshot.actors)
         self._scheduled_events = copy.deepcopy(snapshot.scheduled_events)
         self._stubs = copy.deepcopy(snapshot.stubs)
@@ -683,15 +817,39 @@ class EventSourcedEnvironment:
         self._pending_transactions = copy.deepcopy(snapshot.pending_transactions)
         self._event_log = copy.deepcopy(snapshot.event_log)
         self._recorded_intents = copy.deepcopy(snapshot.recorded_intents)
+        self._effect_receipts = copy.deepcopy(snapshot.side_effect_results)
         self._seed = snapshot.seed
         self._episode_id = snapshot.episode_id
         self._restore_rng(snapshot.rng)
-        self._terminal = bool(snapshot.terminal or self._task_state.get("terminal", False))
-        self._truncated = bool(snapshot.truncated or self._task_state.get("truncated", False))
+        if snapshot.terminal_record is not None:
+            self._terminal_record = snapshot.terminal_record.model_copy(deep=True)
+            self._terminal = self._terminal_record.terminal
+            self._truncated = self._terminal_record.truncated
+        else:
+            self._terminal = bool(snapshot.terminal or self._task_state.get("terminal", False))
+            self._truncated = bool(snapshot.truncated or self._task_state.get("truncated", False))
+            self._terminal_record = None
+            if self._terminal or self._truncated:
+                self._terminal_record = TerminalRecord(
+                    terminal=self._terminal,
+                    truncated=self._truncated,
+                    reason_code="restored",
+                    sequence=self._sequence,
+                    clock=self._clock,
+                    goal_reached=False,
+                    task_id=self._task_state.get("task_id")
+                    if isinstance(self._task_state.get("task_id"), str)
+                    else None,
+                )
         self._task_state["terminal"] = self._terminal
         self._task_state["truncated"] = self._truncated
         self._initialized = True
         self._refresh_fingerprint()
+
+    def state_from_events(self) -> dict[str, Any]:
+        """Reconstruct authoritative state by folding committed event writes."""
+        self._ensure_initialized()
+        return reconstruct_state(self._initial_state_at_reset, self._event_log)
 
     def fork(self) -> EventSourcedEnvironment:
         snap = self.snapshot()
@@ -704,6 +862,8 @@ class EventSourcedEnvironment:
             auth_context=self._auth_context,
         )
         child.restore(snap)
+        child._initial_state_at_reset = copy.deepcopy(self._initial_state_at_reset)
+        child._transition_decisions = copy.deepcopy(self._transition_decisions)
         return child
 
     def mutate_state(self, updates: dict[str, Any]) -> None:
@@ -956,6 +1116,34 @@ class EventSourcedEnvironment:
             }
         )
 
+    def _apply_terminal(
+        self,
+        *,
+        terminal: bool,
+        truncated: bool,
+        reason_code: str,
+    ) -> None:
+        self._terminal = terminal
+        self._truncated = truncated
+        self._task_state["terminal"] = terminal
+        self._task_state["truncated"] = truncated
+        if terminal or truncated:
+            task_id = self._task_state.get("task_id")
+            self._terminal_record = TerminalRecord(
+                terminal=terminal,
+                truncated=truncated,
+                reason_code=reason_code,
+                sequence=self._sequence,
+                clock=self._clock,
+                goal_reached=self._goal_reached() if terminal else False,
+                task_id=task_id if isinstance(task_id, str) else None,
+            )
+        else:
+            self._terminal_record = None
+
+    def _record_decision(self, decision: TransitionDecision) -> None:
+        self._transition_decisions.append(decision)
+
     def _finish_attempt(
         self,
         *,
@@ -971,9 +1159,15 @@ class EventSourcedEnvironment:
         reason: str,
         mutate: bool,
         audit_event_type: str = "action.rejected",
+        transition_index: int | None = None,
+        side_effect_intents: list[SideEffectIntent] | None = None,
+        branch_id: str | None = None,
+        allowed: bool = False,
     ) -> StepResult:
         """Emit audit/transaction accounting for a non-commit (or terminal) attempt."""
         del mutate  # authoritative state never mutates on rejection paths
+        idx = seq_start if transition_index is None else transition_index
+        intents = list(side_effect_intents or [])
         self._clock += 1
         self._sequence += 1
         redacted = redact_payload(payload)
@@ -984,7 +1178,7 @@ class EventSourcedEnvironment:
             clock=self._clock,
             actor_id=actor_id,
             action_id=action_id,
-            branch_id=None,
+            branch_id=branch_id,
             payload=redacted,
             writes={},
             outcome=outcome.value,
@@ -993,6 +1187,20 @@ class EventSourcedEnvironment:
         )
         self._event_log.append(event)
         self._link_audit(event)
+        self._record_decision(
+            TransitionDecision(
+                transaction_id=tx_id,
+                actor_id=actor_id,
+                action_id=action_id,
+                outcome=outcome.value,
+                reason_code=reason_code,
+                branch_id=branch_id,
+                allowed=allowed,
+                transition_index=idx,
+                payload_digest=payload_digest(redacted),
+                auth_digest="",
+            )
+        )
         receipt = TransactionReceipt(
             transaction_id=tx_id,
             sequence_start=seq_start,
@@ -1001,7 +1209,7 @@ class EventSourcedEnvironment:
             reason_code=reason_code,
             mutated_authoritative_state=False,
             event_ids=[event.id],
-            intent_ids=[],
+            intent_ids=[i.id for i in intents],
             audit_head=self._audit_head,
             state_digest=self._digests()["state"],
         )
@@ -1013,6 +1221,7 @@ class EventSourcedEnvironment:
         return StepResult(
             outcome=outcome,
             events=[event],
+            side_effect_intents=intents,
             observation=observation,
             failure_id=failure_id,
             failure_category=category,
@@ -1023,6 +1232,7 @@ class EventSourcedEnvironment:
                 "actor_id": actor_id,
                 "reason_code": reason_code,
                 "transaction_id": tx_id,
+                "transition_index": idx,
             },
             terminal=outcome == StepOutcome.TERMINAL or self._terminal,
             truncated=False,

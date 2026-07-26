@@ -54,25 +54,27 @@ def validate_payload(schema: dict[str, Any], payload: dict[str, Any]) -> None:
 
 def _validate_node(schema: dict[str, Any], value: Any, *, path: str) -> None:
     expected = schema.get("type")
-    if expected is not None:
-        if not _type_matches(expected, value):
-            raise PayloadValidationError(
-                f"{path}: expected type {expected!r}, got {type(value).__name__}",
-                path=path,
-            )
+    if expected is not None and not _type_matches(expected, value):
+        raise PayloadValidationError(
+            f"{path}: expected type {expected!r}, got {type(value).__name__}",
+            path=path,
+        )
 
-    if "enum" in schema:
-        if value not in schema["enum"]:
-            raise PayloadValidationError(
-                f"{path}: value {value!r} not in enum {schema['enum']!r}",
-                path=path,
-            )
+    if "enum" in schema and value not in schema["enum"]:
+        raise PayloadValidationError(
+            f"{path}: value {value!r} not in enum {schema['enum']!r}",
+            path=path,
+        )
 
     if isinstance(value, int | float) and not isinstance(value, bool):
         if "minimum" in schema and value < schema["minimum"]:
-            raise PayloadValidationError(f"{path}: {value} < minimum {schema['minimum']}", path=path)
+            raise PayloadValidationError(
+                f"{path}: {value} < minimum {schema['minimum']}", path=path
+            )
         if "maximum" in schema and value > schema["maximum"]:
-            raise PayloadValidationError(f"{path}: {value} > maximum {schema['maximum']}", path=path)
+            raise PayloadValidationError(
+                f"{path}: {value} > maximum {schema['maximum']}", path=path
+            )
 
     if isinstance(value, str):
         if "minLength" in schema and len(value) < schema["minLength"]:
@@ -144,7 +146,9 @@ def redact_payload(
 ) -> dict[str, Any]:
     """Return a deep-copied payload with sensitive keys replaced."""
     keys = redact_keys if redact_keys is not None else DEFAULT_REDACT_KEYS
-    return _redact(payload, keys)  # type: ignore[return-value]
+    redacted = _redact(payload, keys)
+    assert isinstance(redacted, dict)
+    return redacted
 
 
 def _redact(value: Any, keys: frozenset[str]) -> Any:
