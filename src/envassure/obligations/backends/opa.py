@@ -144,8 +144,8 @@ def emit_rego_v1_bundle(
     }
 
     (out / ".manifest").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    (out / "policy.rego").write_text(policy, encoding="utf-8")
-    (out / "policy_test.rego").write_text(tests, encoding="utf-8")
+    (out / "policy.rego").write_text(policy, encoding="utf-8", newline="\n")
+    (out / "policy_test.rego").write_text(tests, encoding="utf-8", newline="\n")
     (out / "data.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     (out / "schema.json").write_text(json.dumps(schema, indent=2) + "\n", encoding="utf-8")
     (out / "obligation-map.json").write_text(
@@ -180,18 +180,23 @@ def _render_policy(package: str, obligations: list[ProofObligation]) -> str:
         "violations contains v if {",
         "\tsome v in auth_violations",
         "}",
+        "",
         "violations contains v if {",
         "\tsome v in resource_violations",
         "}",
+        "",
         "violations contains v if {",
         "\tsome v in replay_violations",
         "}",
+        "",
         "violations contains v if {",
         "\tsome v in observation_violations",
         "}",
+        "",
         "violations contains v if {",
         "\tsome v in reward_violations",
         "}",
+        "",
         "violations contains v if {",
         "\tsome v in idempotency_violations",
         "}",
@@ -252,8 +257,8 @@ def _render_tests(package: str, obligations: list[ProofObligation]) -> str:
     lines = [
         "package envassure.obligations_test",
         "",
-        "import rego.v1",
         "import data.envassure.obligations as obl",
+        "import rego.v1",
         "",
         "test_allow_when_authorized_state_stable if {",
         "\tobl.allow with input as {",
@@ -288,7 +293,7 @@ def opa_fmt_check(bundle_dir: Path | str, *, opa_path: str | None = None) -> dic
     opa = opa_path or require_opa_binary()
     path = Path(bundle_dir)
     proc = subprocess.run(
-        [opa, "fmt", "--check", str(path / "policy.rego"), str(path / "policy_test.rego")],
+        [opa, "fmt", "--list", "--fail", str(path / "policy.rego"), str(path / "policy_test.rego")],
         capture_output=True,
         text=True,
         check=False,
