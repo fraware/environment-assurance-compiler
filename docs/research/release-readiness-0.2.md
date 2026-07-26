@@ -53,6 +53,11 @@ Aligned with [limitations](limitations.md) and
 Strategic freeze during remediation (R01–R12): **no new CLI commands, adapters,
 or extras** until those milestones land. See the remediation plan.
 
+**Status (2026-07-26):** the R00 adapter/CLI freeze is **lifted** for the public
+`0.2` beta track. New surfaces (obligations, connector, OpenEnv, pack CLI) are
+in tree on `0.2.0.dev*`; cutting `v0.2.0b1` remains gated on the beta DoD
+(PyPI name claim, Environments, independent maintainer repro).
+
 ## Public CLI inventory
 
 Source of truth:
@@ -220,6 +225,18 @@ pytest tests/ -q
   See [supply chain](../security/supply-chain.md). Local attestation verify
   against a published tag is still an operator step at release time.
 - Mypy / example smoke not re-recorded in this pass.
+
+### Public beta (`0.2.0b1`) integration honesty
+
+| Integration | In-tree status | CI caveat |
+| ----------- | -------------- | --------- |
+| Gymnasium | Release-qualified adapter + E5 example | `integrations.yml` gym job |
+| OpenEnv | Adapter + export/test/serve-smoke; pin `0.4.1` | No full HTTP claim; OpenEnv image optional on release |
+| OPA | Bundle generate/report always | `opa fmt`/`test` need system binary (CI pin `1.4.2`) |
+| Differential | In-process HTTP refund + planted mismatch | Compose only when `ENVASURE_RUN_COMPOSE=1` + Docker |
+
+Manual DoD still open: PyPI/TestPyPI name claim, GitHub Environments, independent
+maintainer repro of an RC, annotated signed `v0.2.0b1` tag cut.
 
 ## Related docs
 
