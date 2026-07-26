@@ -1,0 +1,10 @@
+id: envassure-delegated-authorization-conflict
+subject: action:approve / authority_source
+sources:
+- id: policy
+  claim: timeouts must fail closed without idempotency key
+- id: trace
+  claim: retries after timeout were observed succeeding
+conflict_class: semantic_conflict
+status: open
+note: Public declaration only; hidden oracle answers remain concealed.

@@ -1,0 +1,9 @@
+id: pack-ops-branch-conflict
+subject: transition:fulfill / branch_weights
+status: open
+required_expert_role: domain_owner
+default_prohibition: fail_closed
+candidate_interpretations:
+- fail_closed_until_decide
+- prefer_policy_source
+- prefer_trace_source

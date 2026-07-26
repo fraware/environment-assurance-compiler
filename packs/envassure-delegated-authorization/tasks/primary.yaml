@@ -1,0 +1,4 @@
+tasks:
+- id: envassure-delegated-authorization-primary
+  family: authorization
+  intent: Exercise public baseline against concealed oracle

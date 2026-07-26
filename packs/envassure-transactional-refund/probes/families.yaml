@@ -1,0 +1,5 @@
+families:
+- idempotency
+- retry_conflict
+- ledger_consistency
+- timeout_ambiguity

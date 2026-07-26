@@ -1,0 +1,356 @@
+{
+  "ir_version": "0.2.0",
+  "environment_id": "bench.tx.enterprise.v1",
+  "name": "Transactional Refund Benchmark Pack Baseline",
+  "version": "0.1.0",
+  "description": "Concealed multi-step refund / ledger workflow with idempotency and retry conflict probes. Maps to concealed suite transactional_enterprise.",
+  "domain": "transactional",
+  "assurance_profile": "benchmark_pack",
+  "task_families": [
+    "transactional"
+  ],
+  "semantic_sources": [],
+  "state_model_version": "1.0",
+  "clock_model": "discrete_steps",
+  "stochasticity_model": "none",
+  "reset_semantics": "full_reset",
+  "termination_semantics": "goal_or_horizon",
+  "truncation_semantics": "horizon",
+  "concurrency_model": "single_actor",
+  "transaction_model": "none",
+  "external_dependencies": [],
+  "confidentiality_boundaries": [],
+  "declared_fidelity_level": "EF-0",
+  "known_unsupported_behavior": [
+    "retry_after_timeout_without_decision",
+    "idempotency_key_unspecified",
+    "partial_refund_without_policy"
+  ],
+  "permissible_uses": [
+    "research",
+    "evaluation",
+    "benchmarking"
+  ],
+  "determinism": "seeded_recorded_externals",
+  "state": [
+    {
+      "id": "ledger_balance",
+      "name": "ledger_balance",
+      "type": "scalar",
+      "constraints": [],
+      "owning_aggregate": null,
+      "initial_generator": "100",
+      "persistence": "session",
+      "reset_class": "reset_on_episode",
+      "mutation_authority": [],
+      "mutability": "mutable",
+      "confidentiality": "internal",
+      "policy_visible": true,
+      "evaluator_visible": false,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "uncertainty": null,
+      "derived_expression": null,
+      "enum_values": null,
+      "record_fields": null
+    },
+    {
+      "id": "refund_status",
+      "name": "refund_status",
+      "type": "enum",
+      "constraints": [],
+      "owning_aggregate": null,
+      "initial_generator": "none",
+      "persistence": "session",
+      "reset_class": "reset_on_episode",
+      "mutation_authority": [],
+      "mutability": "mutable",
+      "confidentiality": "internal",
+      "policy_visible": true,
+      "evaluator_visible": false,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "uncertainty": null,
+      "derived_expression": null,
+      "enum_values": [
+        "none",
+        "pending",
+        "posted",
+        "conflict"
+      ],
+      "record_fields": null
+    }
+  ],
+  "actors": [
+    {
+      "id": "agent",
+      "actor_class": "agent",
+      "identity_model": "named",
+      "roles": [],
+      "capabilities": [],
+      "credentials": [],
+      "authority_source": null,
+      "delegation_rules": [],
+      "revocation_rules": [],
+      "observation_projection_id": null,
+      "available_actions": [
+        "submit_refund",
+        "observe"
+      ],
+      "lifecycle": "episode",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "observations": [],
+  "actions": [
+    {
+      "id": "submit_refund",
+      "version": "1",
+      "actor_classes": [
+        "agent"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [],
+      "writes": [
+        "ledger_balance",
+        "refund_status"
+      ],
+      "intended_effects": [],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [
+        "idempotency_conflict"
+      ],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [
+          "pack:openapi",
+          "pack:sop",
+          "pack:trace"
+        ],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": [
+        "retry_after_timeout_without_decision"
+      ]
+    },
+    {
+      "id": "observe",
+      "version": "1",
+      "actor_classes": [
+        "agent"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [
+        "refund_status"
+      ],
+      "writes": [],
+      "intended_effects": [],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    }
+  ],
+  "failures": [
+    {
+      "id": "idempotency_conflict",
+      "category": "conflict",
+      "description": "Conflicting retry semantics without decision",
+      "changes_authoritative_state": false,
+      "retryable": true,
+      "exposes_evidence": true,
+      "transaction_effect": "none",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t_refund",
+      "action_id": "submit_refund",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_refund.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "refund.submitted"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_observe",
+      "action_id": "observe",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_observe.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "refund.observed"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "process_refund",
+      "family": "transactional",
+      "initial_constraints": [],
+      "actor_assignment": {
+        "agent": "agent"
+      },
+      "intent": "Post a refund without double-spend under timeout",
+      "goal_claims": [
+        "refund_status == \"posted\""
+      ],
+      "prohibited_behavior": [],
+      "process_requirements": [],
+      "horizon": 6,
+      "resource_budget": {},
+      "permitted_tools": [],
+      "verifier_claim_ids": [],
+      "solvability_method": null,
+      "difficulty_factors": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "verifiers": [],
+  "evidence_obligations": [],
+  "ambiguities": [
+    {
+      "id": "pack-tx-retry-conflict",
+      "subject": "action:submit_refund / retry_behavior",
+      "source_excerpts": [
+        "sources/conflict.yaml"
+      ],
+      "conflict_class": "semantic_conflict",
+      "candidate_interpretations": [
+        "fail_closed_until_decide",
+        "prefer_policy_source",
+        "prefer_trace_source"
+      ],
+      "default_prohibition": "Do not execute contested semantics without an expert decision.",
+      "affected_actions": [
+        "submit_refund",
+        "approve",
+        "reserve"
+      ],
+      "affected_tasks": [],
+      "affected_verifiers": [],
+      "affected_analyses": [],
+      "operational_consequence": "Contested path remains open; pack declares unsupported use.",
+      "required_expert_role": "domain_owner",
+      "status": "open",
+      "decision_id": null,
+      "residual_uncertainty": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "provenance": {
+    "source_ids": [],
+    "decision_ids": [],
+    "fact_ids": [],
+    "origin_kind": null,
+    "notes": null
+  }
+}

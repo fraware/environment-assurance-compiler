@@ -1,0 +1,16 @@
+plan_id: envassure-stochastic-operations-diff-v1
+connector_type: fixture_oracle
+seed: 0
+min_probes: 100
+dimensions:
+- transition_agreement
+- auth_agreement
+- failure_agreement
+- observation_agreement
+- leakage
+- solvability
+- diff_match
+commands:
+- eac benchmark benchmarks/fixtures/stochastic_operational.json --json
+- eac benchmark --concealed --json
+missing_evidence_policy: indeterminate

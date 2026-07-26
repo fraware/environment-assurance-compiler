@@ -1,0 +1,573 @@
+{
+  "ir_version": "0.2.0",
+  "environment_id": "bench.auth.heavy.v1",
+  "name": "Delegated Authorization Benchmark Pack Baseline",
+  "version": "0.1.0",
+  "description": "Concealed multi-tenant approval workflow emphasizing deny-path preservation and observation separation. Maps to authorization_heavy.",
+  "domain": "authorization",
+  "assurance_profile": "benchmark_pack",
+  "task_families": [
+    "authorization"
+  ],
+  "semantic_sources": [],
+  "state_model_version": "1.0",
+  "clock_model": "discrete_steps",
+  "stochasticity_model": "none",
+  "reset_semantics": "full_reset",
+  "termination_semantics": "goal_or_horizon",
+  "truncation_semantics": "horizon",
+  "concurrency_model": "multi_actor",
+  "transaction_model": "none",
+  "external_dependencies": [],
+  "confidentiality_boundaries": [],
+  "declared_fidelity_level": "EF-0",
+  "known_unsupported_behavior": [
+    "cross_tenant_delegation_without_policy",
+    "approver_observation_of_hidden_credentials"
+  ],
+  "permissible_uses": [
+    "research",
+    "evaluation",
+    "benchmarking"
+  ],
+  "determinism": "seeded_recorded_externals",
+  "state": [
+    {
+      "id": "request_status",
+      "name": "request_status",
+      "type": "enum",
+      "constraints": [],
+      "owning_aggregate": null,
+      "initial_generator": "draft",
+      "persistence": "session",
+      "reset_class": "reset_on_episode",
+      "mutation_authority": [],
+      "mutability": "mutable",
+      "confidentiality": "internal",
+      "policy_visible": true,
+      "evaluator_visible": false,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "uncertainty": null,
+      "derived_expression": null,
+      "enum_values": [
+        "draft",
+        "pending",
+        "approved",
+        "denied"
+      ],
+      "record_fields": null
+    },
+    {
+      "id": "tenant_id",
+      "name": "tenant_id",
+      "type": "scalar",
+      "constraints": [],
+      "owning_aggregate": null,
+      "initial_generator": "\"t0\"",
+      "persistence": "session",
+      "reset_class": "reset_on_episode",
+      "mutation_authority": [],
+      "mutability": "mutable",
+      "confidentiality": "internal",
+      "policy_visible": true,
+      "evaluator_visible": false,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "uncertainty": null,
+      "derived_expression": null,
+      "enum_values": null,
+      "record_fields": null
+    }
+  ],
+  "actors": [
+    {
+      "id": "requester",
+      "actor_class": "requester",
+      "identity_model": "named",
+      "roles": [
+        "user"
+      ],
+      "capabilities": [],
+      "credentials": [],
+      "authority_source": null,
+      "delegation_rules": [],
+      "revocation_rules": [],
+      "observation_projection_id": "requester_view",
+      "available_actions": [
+        "submit",
+        "observe"
+      ],
+      "lifecycle": "episode",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    },
+    {
+      "id": "approver",
+      "actor_class": "approver",
+      "identity_model": "named",
+      "roles": [
+        "approver"
+      ],
+      "capabilities": [],
+      "credentials": [],
+      "authority_source": "role:approver",
+      "delegation_rules": [],
+      "revocation_rules": [],
+      "observation_projection_id": "approver_view",
+      "available_actions": [
+        "approve",
+        "deny",
+        "observe"
+      ],
+      "lifecycle": "episode",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "observations": [
+    {
+      "id": "requester_view",
+      "target_actor_class": "requester",
+      "visible_paths": [
+        "request_status"
+      ],
+      "omitted_paths": [
+        "tenant_id"
+      ],
+      "transformations": [],
+      "aggregation": null,
+      "delay": null,
+      "noise": null,
+      "staleness": null,
+      "access_control": null,
+      "information_flow_labels": [],
+      "error_policy": null,
+      "side_channel_policy": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    },
+    {
+      "id": "approver_view",
+      "target_actor_class": "approver",
+      "visible_paths": [
+        "request_status",
+        "tenant_id"
+      ],
+      "omitted_paths": [],
+      "transformations": [],
+      "aggregation": null,
+      "delay": null,
+      "noise": null,
+      "staleness": null,
+      "access_control": null,
+      "information_flow_labels": [],
+      "error_policy": null,
+      "side_channel_policy": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": "submit",
+      "version": "1",
+      "actor_classes": [
+        "requester"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [],
+      "writes": [
+        "request_status"
+      ],
+      "intended_effects": [
+        "request_status = \"pending\""
+      ],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [
+          "pack:sources"
+        ],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "approve",
+      "version": "1",
+      "actor_classes": [
+        "approver"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": "role:approver",
+      "reads": [],
+      "writes": [
+        "request_status"
+      ],
+      "intended_effects": [
+        "request_status = \"approved\""
+      ],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [
+        "unauthorized"
+      ],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "deny",
+      "version": "1",
+      "actor_classes": [
+        "approver"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": "role:approver",
+      "reads": [],
+      "writes": [
+        "request_status"
+      ],
+      "intended_effects": [
+        "request_status = \"denied\""
+      ],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [
+        "unauthorized"
+      ],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "observe",
+      "version": "1",
+      "actor_classes": [
+        "requester",
+        "approver"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [
+        "request_status"
+      ],
+      "writes": [],
+      "intended_effects": [],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    }
+  ],
+  "failures": [
+    {
+      "id": "unauthorized",
+      "category": "authorization",
+      "description": "Caller lacks approver role",
+      "changes_authoritative_state": false,
+      "retryable": false,
+      "exposes_evidence": true,
+      "transaction_effect": "none",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t_submit",
+      "action_id": "submit",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_submit.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "request.submitted"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_approve",
+      "action_id": "approve",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_approve.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "request.approved"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_deny",
+      "action_id": "deny",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_deny.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "request.denied"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_observe",
+      "action_id": "observe",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_observe.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "request.observed"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "get_approval",
+      "family": "authorization",
+      "initial_constraints": [],
+      "actor_assignment": {
+        "user": "requester",
+        "reviewer": "approver"
+      },
+      "intent": "Submit and obtain approval without leaking credentials",
+      "goal_claims": [
+        "request_status == \"approved\""
+      ],
+      "prohibited_behavior": [],
+      "process_requirements": [],
+      "horizon": 5,
+      "resource_budget": {},
+      "permitted_tools": [],
+      "verifier_claim_ids": [],
+      "solvability_method": null,
+      "difficulty_factors": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "verifiers": [],
+  "evidence_obligations": [],
+  "ambiguities": [
+    {
+      "id": "pack-auth-delegation-conflict",
+      "subject": "action:approve / authority_source",
+      "source_excerpts": [
+        "sources/conflict.yaml"
+      ],
+      "conflict_class": "semantic_conflict",
+      "candidate_interpretations": [
+        "fail_closed_until_decide",
+        "prefer_policy_source",
+        "prefer_trace_source"
+      ],
+      "default_prohibition": "Do not execute contested semantics without an expert decision.",
+      "affected_actions": [
+        "submit_refund",
+        "approve",
+        "reserve"
+      ],
+      "affected_tasks": [],
+      "affected_verifiers": [],
+      "affected_analyses": [],
+      "operational_consequence": "Contested path remains open; pack declares unsupported use.",
+      "required_expert_role": "domain_owner",
+      "status": "open",
+      "decision_id": null,
+      "residual_uncertainty": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "provenance": {
+    "source_ids": [],
+    "decision_ids": [],
+    "fact_ids": [],
+    "origin_kind": null,
+    "notes": null
+  }
+}

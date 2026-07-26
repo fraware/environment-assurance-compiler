@@ -1,0 +1,5 @@
+families:
+- stockout_branch
+- categorical_transition
+- underpowered_sample
+- fulfillment_timeout
