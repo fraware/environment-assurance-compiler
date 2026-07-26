@@ -11,13 +11,16 @@ from envassure.diagnostics.factory import make_diagnostic
 from envassure.diagnostics.models import Diagnostic, DiagnosticReport
 from envassure.ir.models import (
     ActionContract,
-    ActorDefinition,
     TaskTemplate,
     WorldDefinition,
 )
 from envassure.runtime.authorization import (
     actor_discharges as _actor_discharges,
+)
+from envassure.runtime.authorization import (
     delegation_targets as _delegation_targets,
+)
+from envassure.runtime.authorization import (
     normalize_auth_token as _normalize_auth_token,
 )
 

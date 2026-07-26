@@ -59,9 +59,7 @@ def evaluate(expr: Expr, ctx: EvalContext) -> Any:
     if isinstance(expr, Membership):
         item = evaluate(expr.item, ctx)
         collection = evaluate(expr.collection, ctx)
-        if isinstance(collection, dict):
-            found = item in collection
-        elif isinstance(collection, list | tuple | set | str):
+        if isinstance(collection, dict | list | tuple | set | str):
             found = item in collection
         else:
             raise ExpressionError(
@@ -198,13 +196,13 @@ def _eval_call(expr: CallExpr, ctx: EvalContext) -> Any:
     name = expr.name
     try:
         if name == "len":
-            return len(args[0])  # type: ignore[arg-type]
+            return len(args[0])
         if name == "abs":
             return abs(args[0])
         if name == "min":
-            return min(args) if len(args) > 1 else min(args[0])  # type: ignore[call-overload]
+            return min(args) if len(args) > 1 else min(args[0])
         if name == "max":
-            return max(args) if len(args) > 1 else max(args[0])  # type: ignore[call-overload]
+            return max(args) if len(args) > 1 else max(args[0])
         if name == "str":
             return str(args[0])
         if name == "bool":
@@ -214,9 +212,9 @@ def _eval_call(expr: CallExpr, ctx: EvalContext) -> Any:
         if name == "float":
             return float(args[0])
         if name == "keys":
-            return list(args[0].keys())  # type: ignore[union-attr]
+            return list(args[0].keys())
         if name == "values":
-            return list(args[0].values())  # type: ignore[union-attr]
+            return list(args[0].values())
         if name == "lower":
             return str(args[0]).lower()
         if name == "upper":
@@ -233,9 +231,7 @@ def _eval_collection_pred(expr: CollectionPred, ctx: EvalContext) -> bool:
     collection = evaluate(expr.collection, ctx)
     if isinstance(collection, dict):
         items = list(collection.values())
-    elif isinstance(collection, list | tuple):
-        items = list(collection)
-    elif isinstance(collection, set):
+    elif isinstance(collection, list | tuple | set):
         items = list(collection)
     else:
         raise ExpressionError(

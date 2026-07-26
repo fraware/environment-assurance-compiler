@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, TypeAlias
+from typing import Literal as TypingLiteral
 
-
-PathRoot = Literal["state", "actor", "payload", "context"]
+PathRoot = TypingLiteral["state", "actor", "payload", "context"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,7 +24,7 @@ class PathRef:
 
 @dataclass(frozen=True, slots=True)
 class UnaryOp:
-    op: Literal["not", "neg", "pos"]
+    op: TypingLiteral["not", "neg", "pos"]
     operand: Expr
 
 
@@ -61,20 +61,13 @@ class CallExpr:
 class CollectionPred:
     """Bounded ``all`` / ``any`` over a collection (max *bound* elements)."""
 
-    kind: Literal["all", "any"]
+    kind: TypingLiteral["all", "any"]
     var: str
     collection: Expr
     body: Expr
     bound: int = 64
 
 
-Expr = (
-    Literal
-    | PathRef
-    | UnaryOp
-    | BinaryOp
-    | Conditional
-    | Membership
-    | CallExpr
-    | CollectionPred
+Expr: TypeAlias = (
+    Literal | PathRef | UnaryOp | BinaryOp | Conditional | Membership | CallExpr | CollectionPred
 )

@@ -58,9 +58,13 @@ def _tokenize(text: str) -> list[_Tok]:
             i += 1
             continue
         # Multi-char operators
-        if text.startswith("==", i) or text.startswith("!=", i) or text.startswith("<=", i) or text.startswith(
-            ">=", i
-        ) or text.startswith("//", i):
+        if (
+            text.startswith("==", i)
+            or text.startswith("!=", i)
+            or text.startswith("<=", i)
+            or text.startswith(">=", i)
+            or text.startswith("//", i)
+        ):
             tokens.append(_Tok("op", text[i : i + 2]))
             i += 2
             continue
@@ -234,13 +238,23 @@ class _Parser:
 
         # Collection predicates: all x in coll: body / any x in coll: body
         if tok.kind == "kw" and tok.value in {"all", "any"}:
-            kind = self._advance().value  # type: ignore[assignment]
+            kind_raw = self._advance().value
+            if kind_raw not in {"all", "any"}:
+                raise ExpressionError(
+                    f"expected all/any, got {kind_raw!r}",
+                    code="EAC_EXPR_SYNTAX",
+                )
             var_tok = self._expect("id")
             self._expect("in")
             collection = self.parse_or()
             self._expect(":")
             body = self.parse_or()
-            return CollectionPred(kind=kind, var=var_tok.value, collection=collection, body=body)
+            return CollectionPred(
+                kind="all" if kind_raw == "all" else "any",
+                var=var_tok.value,
+                collection=collection,
+                body=body,
+            )
 
         if self._match("("):
             inner = self.parse_or()
@@ -335,10 +349,11 @@ def parse_effect(expression: str) -> tuple[str, str, Expr]:
         if op in text:
             left, _, right = text.partition(op)
             name = left.strip()
-            if not name or not all(c.isalnum() or c == "_" for c in name):
-                # Allow dotted targets later; for now top-level state ids.
-                if not name.replace(".", "").replace("_", "").isalnum():
-                    continue
+            # Allow dotted targets later; for now top-level state ids.
+            if (not name or not all(c.isalnum() or c == "_" for c in name)) and (
+                not name.replace(".", "").replace("_", "").isalnum()
+            ):
+                continue
             # Only simple identifiers for write targets (state keys).
             if "." in name:
                 raise ExpressionError(
