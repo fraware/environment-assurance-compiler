@@ -142,6 +142,8 @@ files = ["src/envassure"]
 module = [
   "tomli_w",
   "yaml",
+  "numpy",
+  "numpy.*",
   "gymnasium",
   "gymnasium.*",
   "pettingzoo",

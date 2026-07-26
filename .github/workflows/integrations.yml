@@ -123,7 +123,7 @@ jobs:
               BUNDLE="$(mktemp -d)"
               eac obligations generate examples/opa_authorization/input/world.json \
                 -o "$BUNDLE" --allow-unsupported
-              opa fmt --check "$BUNDLE/policy.rego" "$BUNDLE/policy_test.rego"
+              opa fmt --list --fail "$BUNDLE/policy.rego" "$BUNDLE/policy_test.rego"
               opa test --fail-on-empty "$BUNDLE"
               if command -v bash >/dev/null 2>&1; then
                 (cd examples/opa_authorization && bash run.sh && bash verify.sh)

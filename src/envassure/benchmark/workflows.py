@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -124,7 +124,7 @@ def build_workflow_oracle(
     wid: WorkflowId
     if workflow_id not in WORKFLOW_SPECS:
         raise KeyError(f"unknown workflow_id: {workflow_id!r}")
-    wid = workflow_id  # type: ignore[assignment]
+    wid = cast(WorkflowId, workflow_id)
     spec = WORKFLOW_SPECS[wid]
     builder = {
         "transactional_enterprise": _episodes_transactional,
