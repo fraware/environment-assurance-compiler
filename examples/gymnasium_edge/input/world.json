@@ -1,0 +1,300 @@
+{
+  "ir_version": "0.2.0",
+  "environment_id": "gymnasium.edge.v1",
+  "name": "Gymnasium Edge Payload Counter",
+  "version": "0.1.0",
+  "description": "Payload-bearing set action for Gymnasium Dict action-space demos.",
+  "domain": "reference",
+  "assurance_profile": "baseline",
+  "task_families": [
+    "set_value"
+  ],
+  "semantic_sources": [],
+  "state_model_version": "1.0",
+  "clock_model": "discrete_steps",
+  "stochasticity_model": "none",
+  "reset_semantics": "full_reset",
+  "termination_semantics": "goal_or_horizon",
+  "truncation_semantics": "horizon",
+  "concurrency_model": "single_actor",
+  "transaction_model": "none",
+  "external_dependencies": [],
+  "confidentiality_boundaries": [],
+  "declared_fidelity_level": "EF-1",
+  "known_unsupported_behavior": [],
+  "permissible_uses": [],
+  "determinism": "fully_deterministic",
+  "state": [
+    {
+      "id": "n",
+      "name": "n",
+      "type": "resource_counter",
+      "constraints": [],
+      "owning_aggregate": null,
+      "initial_generator": "0",
+      "persistence": "session",
+      "reset_class": "reset_on_episode",
+      "mutation_authority": [],
+      "mutability": "mutable",
+      "confidentiality": "internal",
+      "policy_visible": true,
+      "evaluator_visible": false,
+      "provenance": {
+        "source_ids": [
+          "manual"
+        ],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "uncertainty": null,
+      "derived_expression": null,
+      "enum_values": null,
+      "record_fields": null
+    }
+  ],
+  "actors": [
+    {
+      "id": "agent",
+      "actor_class": "agent",
+      "identity_model": "named",
+      "roles": [],
+      "capabilities": [],
+      "credentials": [],
+      "authority_source": null,
+      "delegation_rules": [],
+      "revocation_rules": [],
+      "observation_projection_id": "agent_view",
+      "available_actions": [
+        "set",
+        "get"
+      ],
+      "lifecycle": "episode",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "observations": [
+    {
+      "id": "agent_view",
+      "target_actor_class": "agent",
+      "visible_paths": [
+        "n"
+      ],
+      "omitted_paths": [],
+      "transformations": [],
+      "aggregation": null,
+      "delay": null,
+      "noise": null,
+      "staleness": null,
+      "access_control": null,
+      "information_flow_labels": [],
+      "error_policy": null,
+      "side_channel_policy": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": "set",
+      "version": "1",
+      "actor_classes": [
+        "agent"
+      ],
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          }
+        },
+        "additionalProperties": false
+      },
+      "preconditions": [],
+      "authorization": null,
+      "reads": [],
+      "writes": [
+        "n"
+      ],
+      "intended_effects": [
+        "n = payload.value"
+      ],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [
+          "manual"
+        ],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "get",
+      "version": "1",
+      "actor_classes": [
+        "agent"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [
+        "n"
+      ],
+      "writes": [],
+      "intended_effects": [],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    }
+  ],
+  "failures": [],
+  "transitions": [
+    {
+      "id": "t_set",
+      "action_id": "set",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_set.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "n.set"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_get",
+      "action_id": "get",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_get.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "n.read"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "reach_three",
+      "family": "set_value",
+      "initial_constraints": [],
+      "actor_assignment": {},
+      "intent": "Reach n == 3 via payload set",
+      "goal_claims": [
+        "n == 3"
+      ],
+      "prohibited_behavior": [],
+      "process_requirements": [],
+      "horizon": 8,
+      "resource_budget": {},
+      "permitted_tools": [],
+      "verifier_claim_ids": [],
+      "solvability_method": null,
+      "difficulty_factors": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "verifiers": [],
+  "evidence_obligations": [],
+  "ambiguities": [],
+  "provenance": {
+    "source_ids": [],
+    "decision_ids": [],
+    "fact_ids": [],
+    "origin_kind": null,
+    "notes": null
+  }
+}
