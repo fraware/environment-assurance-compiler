@@ -83,13 +83,14 @@ jobs:
       - name: Extract and verify (no checkout)
         run: |
           set -euo pipefail
-          # Prefer the directory payload; fall back to tarball.
-          if [[ -d bundle-dl/dist-repro ]]; then
-            cd bundle-dl/dist-repro
-          elif [[ -f bundle-dl/reproducibility-bundle.tar.gz ]]; then
+          # Prefer the tarball: actions/upload-artifact drops empty files from
+          # directory uploads, which omits results/.gitkeep from dist-repro/.
+          if [[ -f bundle-dl/reproducibility-bundle.tar.gz ]]; then
             mkdir -p extracted
             tar -xzf bundle-dl/reproducibility-bundle.tar.gz -C extracted
             cd extracted
+          elif [[ -d bundle-dl/dist-repro ]]; then
+            cd bundle-dl/dist-repro
           else
             # Artifact may unpack files at the top level
             cd bundle-dl

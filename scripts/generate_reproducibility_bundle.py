@@ -82,7 +82,8 @@ def _collect_files() -> list[dict[str, object]]:
         rel_pack = f"inputs/packs/{pack_dir.name}/pack.yaml"
         dest = BUNDLE / rel_pack
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(pack_yaml.read_text(encoding="utf-8"), encoding="utf-8")
+        # Binary copy preserves LF from packs/** (see .gitattributes).
+        dest.write_bytes(pack_yaml.read_bytes())
         files.append(
             {
                 "path": rel_pack,
@@ -158,7 +159,9 @@ def refresh() -> None:
     (BUNDLE / "scripts" / "pack-verify.txt").write_text(
         "eac pack verify packs --json\n", encoding="utf-8"
     )
-    (BUNDLE / "results" / ".gitkeep").write_text("", encoding="utf-8")
+    # Non-empty + binary write: upload-artifact omits 0-byte files from directory
+    # uploads; avoid text-mode CRLF so digests match across platforms.
+    (BUNDLE / "results" / ".gitkeep").write_bytes(b"\n")
 
     files = _collect_files()
     digest = _bundle_digest(files)
