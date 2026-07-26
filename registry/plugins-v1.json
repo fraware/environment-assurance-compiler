@@ -1,0 +1,6 @@
+{
+  "registry_version": "1",
+  "updated_at": "2026-07-26T00:00:00Z",
+  "notes": "Curated metadata only. EnvAssure must never auto-install or auto-enable entries from this registry. Empty at public-beta scaffolding; submit via issue + PR with digests and limitations.",
+  "plugins": []
+}

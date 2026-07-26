@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../schemas/environment-defect-v1.schema.json
+# Placeholder public record for registry scaffolding (Milestone E).
+# Digests are illustrative zeros — replace when a real pack/environment is cited.
+# Not a security advisory.
+
+schema_version: "1"
+id: ENV-2026-0001
+title: "Refund reference world omits connector timeout / partial-failure semantics"
+recorded_at: "2026-07-26"
+
+affected:
+  environment_or_pack: "examples/refund (reference world scaffolding)"
+  versions:
+    - "0.1.0a0"
+    - "0.2.0b1-candidate"
+  digests:
+    - "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+discoverer: "envassure maintainers (scaffolding placeholder)"
+severity: medium
+class: timeout_retry
+
+reproducer:
+  summary: >
+    Exercise a refund path that should surface connector timeout or partial
+    failure; the example world completes without modeling those outcomes.
+  offline: true
+  fixture_path: "examples/refund/"
+  steps:
+    - "Install envassure from the candidate wheel (not editable checkout)."
+    - "Run the refund example contract (run.sh / verify.sh) when present."
+    - "Compare declared fidelity claims against production timeout/retry behavior."
+    - "Note missing timeout / partial-failure transitions in IR or differential dimensions."
+
+observed_behavior: |
+  The refund example world and early reference-connector fixtures emphasize
+  happy-path and authorization conflicts. Connector timeout and partial-failure
+  modes are under-specified or absent, so probes cannot fail closed on those
+  dimensions.
+
+expected_behavior: |
+  A reference refund service under load exhibits timeouts, retries, and partial
+  failures. Environments that claim operational fidelity on those dimensions
+  must model them or mark the claims unsupported / indeterminate with residual
+  limitations — not omit them silently.
+
+affected_claims:
+  - "failure_agreement / timeout-retry fidelity for refund flows"
+  - "Any assurance-case claim of production parity for connector error handling"
+
+disclosure_status: public
+fixed_version: null
+permanent_regression: true
+residual_limitation: |
+  Until a timeout fixture and differential probes land (see good-first issue
+  GFI-07 and Milestone C3), packs must not claim production timeout/retry
+  parity for the refund reference path.
+
+links:
+  issues: []
+  pull_requests: []
+  releases: []
+  advisories: []
+
+notes: |
+  Scaffolding example for registry/environment-defects/. Replace zero digests
+  and link real issues when the refund reference connector qualifies.
