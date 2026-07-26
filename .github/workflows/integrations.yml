@@ -1,0 +1,157 @@
+# Reference integration matrix: openenv, gym, opa, differential(+compose).
+# Fail-closed on hard failures. Optional Docker compose / OPA binary paths
+# skip gracefully when unavailable (markers / ENVASURE_RUN_COMPOSE).
+
+name: Integrations
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      integration:
+        description: "Optional single integration to run (openenv|gym|opa|differential|all)"
+        type: string
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: integrations-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Pin system OPA for fmt/test when the binary is installed (not vendored).
+  OPA_VERSION: "1.4.2"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  matrix:
+    name: ${{ matrix.integration }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        integration: [openenv, gym, opa, differential]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Select gate
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          WANT="${{ github.event.inputs.integration || 'all' }}"
+          INT="${{ matrix.integration }}"
+          if [[ "$WANT" != "all" && "$WANT" != "$INT" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install base + toolchain
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Detect Docker (differential/compose)
+        if: steps.gate.outputs.skip != 'true' && matrix.integration == 'differential'
+        id: docker
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+            echo "ENVASURE_RUN_COMPOSE=1" >> "$GITHUB_ENV"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Docker unavailable — compose tests will skip (ENVASURE_RUN_COMPOSE unset)"
+          fi
+
+      - name: Install OPA binary
+        if: steps.gate.outputs.skip != 'true' && matrix.integration == 'opa'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/opa \
+            "https://openpolicyagent.org/downloads/v${OPA_VERSION}/opa_linux_amd64_static"
+          chmod +x /tmp/opa
+          sudo mv /tmp/opa /usr/local/bin/opa
+          opa version
+
+      - name: Run integration
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          INTEGRATION: ${{ matrix.integration }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/integrations
+          case "$INTEGRATION" in
+            gym)
+              pip install -e ".[gym,dev]"
+              pytest -m gym tests/test_adapters_release.py -q --cov=envassure --cov-fail-under=0
+              # Example contract scripts when bash + eac available
+              if command -v bash >/dev/null 2>&1; then
+                (cd examples/gymnasium_edge && bash run.sh && bash verify.sh)
+              fi
+              echo "status=ok" > artifacts/integrations/gym.status
+              ;;
+            openenv)
+              pip install -e ".[openenv,dev]"
+              # Unit/integration without requiring flaky full HTTP serve.
+              pytest tests/integration/openenv -q --cov=envassure --cov-fail-under=0
+              if command -v bash >/dev/null 2>&1; then
+                (cd examples/openenv_refund && bash run.sh && bash verify.sh)
+              fi
+              echo "status=ok" > artifacts/integrations/openenv.status
+              ;;
+            opa)
+              pip install -e ".[opa,dev]"
+              pytest tests/integration/opa -q --cov=envassure --cov-fail-under=0
+              # Generate a bundle and run opa fmt/test when binary is present.
+              BUNDLE="$(mktemp -d)"
+              eac obligations generate examples/opa_authorization/input/world.json \
+                -o "$BUNDLE" --allow-unsupported
+              opa fmt --check "$BUNDLE/policy.rego" "$BUNDLE/policy_test.rego"
+              opa test --fail-on-empty "$BUNDLE"
+              if command -v bash >/dev/null 2>&1; then
+                (cd examples/opa_authorization && bash run.sh && bash verify.sh)
+              fi
+              echo "status=ok" > artifacts/integrations/opa.status
+              ;;
+            differential)
+              # In-process HTTP refund service + optional compose config check.
+              pytest tests/integration/differential -q --cov=envassure --cov-fail-under=0
+              if command -v bash >/dev/null 2>&1; then
+                (cd examples/reference_systems/refund_service && bash run.sh && bash verify.sh)
+              fi
+              if [[ "${{ steps.docker.outputs.available }}" == "true" ]]; then
+                echo "compose=exercised" >> artifacts/integrations/differential.status
+              else
+                echo "compose=skipped" >> artifacts/integrations/differential.status
+              fi
+              echo "status=ok" >> artifacts/integrations/differential.status
+              ;;
+            *)
+              echo "unknown integration: $INTEGRATION" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Upload status markers
+        if: steps.gate.outputs.skip != 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-${{ matrix.integration }}-status
+          path: artifacts/integrations/
+          if-no-files-found: ignore
