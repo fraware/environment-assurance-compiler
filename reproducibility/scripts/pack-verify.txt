@@ -1,0 +1,1 @@
+eac pack verify packs --json

@@ -1,0 +1,63 @@
+schema_version: '1'
+pack_id: envassure-delegated-authorization
+version: 0.2.0b1
+name: Delegated Authorization Benchmark Pack
+description: Concealed multi-tenant approval workflow emphasizing deny-path preservation
+  and observation separation. Maps to authorization_heavy.
+domain: authorization
+licenses:
+- Apache-2.0
+permitted_uses:
+- research
+- evaluation
+- benchmarking
+sensitivity: public
+required_envassure: '>=0.2.0b1'
+required_ir: 0.2.0
+connector_type: fixture_oracle
+workflow_id: authorization_heavy
+public_components:
+- sources/
+- decisions/
+- baselines/public-baseline.json
+- probes/
+- expected-public/
+hidden_components:
+- concealed_oracle_episodes
+- digest:f8f4cca23463774f8cf41b292c916e4d2c9696abbf328aec09fdf163b3b1b455
+probe_families:
+- deny_path
+- delegation
+- observation_separation
+- role_escalation
+metrics:
+- transition_agreement
+- auth_agreement
+- failure_agreement
+- observation_agreement
+- leakage
+- solvability
+- diff_match
+limitations:
+- Hidden oracle episodes are digest-pinned and not shipped as answer keys.
+- Interface agreement is not production behavioral parity.
+- Dimension metrics must not be collapsed into a single score.
+maintainers:
+- name: EnvAssure maintainers
+  role: governance
+governance_owner: EnvAssure maintainers
+digests:
+  hidden_oracle: f8f4cca23463774f8cf41b292c916e4d2c9696abbf328aec09fdf163b3b1b455
+  baseline_world: 8307ace4ee00a7f174dc4ca0d7761e3f90c8c82a17abf1095896417dceb8644b
+  pack_tree: f81e60671d18f5691517b6c18c44bd3e56185c5f4da464abae327bb66e78a102
+includes:
+  source_conflict: sources/conflict.yaml
+  open_ambiguity: decisions/open-ambiguity.yaml
+  hidden_reference: probes/hidden-reference.yaml
+  unsupported_uses: world/unsupported-uses.yaml
+  baseline: baselines/public-baseline.json
+  mutation_suite: probes/mutation-suite.yaml
+  differential_plan: probes/differential-plan.yaml
+metadata:
+  fixture_path: benchmarks/fixtures/authorization_heavy.json
+  mapped_from: envassure.benchmark.workflows

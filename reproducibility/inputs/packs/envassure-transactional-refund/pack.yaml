@@ -1,0 +1,63 @@
+schema_version: '1'
+pack_id: envassure-transactional-refund
+version: 0.2.0b1
+name: Transactional Refund Benchmark Pack
+description: Concealed multi-step refund / ledger workflow with idempotency and retry
+  conflict probes. Maps to concealed suite transactional_enterprise.
+domain: transactional
+licenses:
+- Apache-2.0
+permitted_uses:
+- research
+- evaluation
+- benchmarking
+sensitivity: public
+required_envassure: '>=0.2.0b1'
+required_ir: 0.2.0
+connector_type: fixture_oracle
+workflow_id: transactional_enterprise
+public_components:
+- sources/
+- decisions/
+- baselines/public-baseline.json
+- probes/
+- expected-public/
+hidden_components:
+- concealed_oracle_episodes
+- digest:de35098a6adb1c28860e9b56ff040a3f8b49fd240ae4a46365094e42d8bef8e8
+probe_families:
+- idempotency
+- retry_conflict
+- ledger_consistency
+- timeout_ambiguity
+metrics:
+- transition_agreement
+- auth_agreement
+- failure_agreement
+- observation_agreement
+- leakage
+- solvability
+- diff_match
+limitations:
+- Hidden oracle episodes are digest-pinned and not shipped as answer keys.
+- Interface agreement is not production behavioral parity.
+- Dimension metrics must not be collapsed into a single score.
+maintainers:
+- name: EnvAssure maintainers
+  role: governance
+governance_owner: EnvAssure maintainers
+digests:
+  hidden_oracle: de35098a6adb1c28860e9b56ff040a3f8b49fd240ae4a46365094e42d8bef8e8
+  baseline_world: 1c40ceb6b34cfea114f45d2e6a54086e7f69866492933634fd388584acb1444e
+  pack_tree: 1f18c7e9a4640c41591f3ec8731c54747c2a2e2bf4cd8e702dfebddc8784d353
+includes:
+  source_conflict: sources/conflict.yaml
+  open_ambiguity: decisions/open-ambiguity.yaml
+  hidden_reference: probes/hidden-reference.yaml
+  unsupported_uses: world/unsupported-uses.yaml
+  baseline: baselines/public-baseline.json
+  mutation_suite: probes/mutation-suite.yaml
+  differential_plan: probes/differential-plan.yaml
+metadata:
+  fixture_path: benchmarks/fixtures/transactional_enterprise.json
+  mapped_from: envassure.benchmark.workflows
