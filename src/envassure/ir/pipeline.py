@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from envassure.analysis.static import StaticAnalysisResult, analyze_world
@@ -21,7 +21,7 @@ from envassure.tasks import validate_release_tasks
 from envassure.verifiers import audit_verifiers
 
 
-class ReleaseProfile(str, Enum):
+class ReleaseProfile(StrEnum):
     """Named release profiles with escalating diagnostic→blocking maps."""
 
     AUTHORING = "authoring"

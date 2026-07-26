@@ -15,7 +15,6 @@ from envassure.differential.compare import ComparisonTolerances, compare_outcome
 from envassure.differential.connector import (
     FileBackedSimulatorConnector,
     InMemoryReferenceConnector,
-    LocalHttpStubConnector,
     ProbeOutcome,
     RecordedFixtureConnector,
     ReferenceConnector,
@@ -96,7 +95,7 @@ def _run_campaign(
     if callable(probe_state):
         try:
             privileged = probe_state()
-        except Exception as exc:  # noqa: BLE001 — evidence may be absent
+        except Exception as exc:
             privileged = {"indeterminate": True, "error": str(exc)}
 
     extra = {
@@ -268,9 +267,7 @@ def differential_reproduce(
         )
         return
     # Re-run offline against recorded results: compare saved failing set stability.
-    prior_failing = [
-        r["probe_id"] for r in data.get("results", []) if not r.get("matched", True)
-    ]
+    prior_failing = [r["probe_id"] for r in data.get("results", []) if not r.get("matched", True)]
     # Use fixture-less in-memory echo as a deterministic re-check harness when
     # the original connectors are unavailable; callers should prefer re-run.
     reference = InMemoryReferenceConnector(connector_name="reproduce_ref")

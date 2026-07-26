@@ -1,21 +1,21 @@
 {
-  "bundle_digest": "875121ccc3a8e7e6abab6cdcb1e88d01d6f0550b498699ecb731d0970842d5bc",
+  "bundle_digest": "f76995493d9ac8562fef9c80fc519475e7633b580714bb46af891143b4e4f05a",
   "files": {
     "CITATION.cff": "7d52222b02b4f483ad48e7bcf30f923c26d7bc5d4c606d0993d10360f442083d",
     "README.md": "6b12d7f2427d8fb9f852c3e375348dfebc6be8dc48476868cbf16259f505a27a",
     "configs/pack-verify.json": "2cc9f2f55fd0611832187c4874c67b6f620e2df862b1494249b9469436b05d13",
     "environment/python.txt": "0d03e9bf03e71f9987ec6a071e0693c52380e6b444c3110ff2c947ed258a0eb5",
-    "hardware-and-platform.json": "24a85f3d48e41f5a52a6bd82a427258d894bde5e6eb4b29fd9127a5513f61910",
-    "inputs/packs/envassure-delegated-authorization/pack.yaml": "487efaefad3dda68344e90a3f4fc56b48b3a8c1241ce8b8b058a788b7a942477",
-    "inputs/packs/envassure-stochastic-operations/pack.yaml": "9f1cda019ec30b39cec4a3daea009e3ae3d4d3494f6360e7f6ef30028bd52999",
-    "inputs/packs/envassure-transactional-refund/pack.yaml": "c87f5a1b5858239dbef4719dfc34067f1450f07eb154b1158d2bc2e122aeab9c",
+    "hardware-and-platform.json": "073a703fd4d7cf3ed64449500dff7748b00dbbd058897408103e84a64cb12339",
+    "inputs/packs/envassure-delegated-authorization/pack.yaml": "f316cc8f449ad85807ed1f4347a59b0ae00b7cc59355d88dcc9d416c9660f8e2",
+    "inputs/packs/envassure-stochastic-operations/pack.yaml": "832f724f462cc390eee9b5eb4477f70d31be0e9ea507bb807fb0edddf709e77c",
+    "inputs/packs/envassure-transactional-refund/pack.yaml": "38177c5d76d3df7eb9c975248c2fa480340cce85bbe3aba0ad640b95275ae3bb",
     "limitations.md": "9204cf333276a1bd4d95a9d224b7554278f53406046ff8be14f3bd1d2909fa32",
     "locks/README.md": "686e25a37eb9dd9575a30296bc63d1408d23b0a7e197ed3ed175005afa331a56",
-    "release-manifest.json": "58e0bc049238e7fb28aead3f60a84c4fb323204ec1e79f5ac4f35521bea717ed",
+    "release-manifest.json": "92d6eca71b78a4f8e786640d0d662c0ecff781c3d75f5124c10275ba7cc4de9f",
     "reproduce.sh": "d6deb1fbd3a030f38ec3971edd94d3b59d95a293a442ba75f12a5244c09b1bcd",
     "results/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "scripts/pack-verify.txt": "7719042e8c889c4bcc0fcea42e15331408afbe77423d31ac10099fcfb8eed231",
-    "source-commit.txt": "61237492a30c7d332de2896b4d038de2864115f6160af824caf79ec2d0680a1d",
+    "source-commit.txt": "a22b50628f1fd6908f7cf0d1206f82410b420d20b2886a06bb26e2c4012c58cb",
     "verify.sh": "0024aee3b502064f7b5e57ab4b54d8e8e1519d6422381cf5e9cee36d84e6d676"
   }
 }

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class StepOutcome(str, Enum):
+class StepOutcome(StrEnum):
     """Closed decision model for AssuredEnvironment.step results.
 
     Episode markers ``terminal`` / ``truncated`` appear as outcomes when they

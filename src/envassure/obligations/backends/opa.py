@@ -61,9 +61,7 @@ def _assert_supported(obl: ProofObligation) -> None:
         )
     for req in obl.backend_requirements:
         if req in _UNSUPPORTED_BACKEND:
-            raise OpaBackendError(
-                f"obligation {obl.id!r} requires unsupported backend {req!r}"
-            )
+            raise OpaBackendError(f"obligation {obl.id!r} requires unsupported backend {req!r}")
 
 
 def emit_rego_v1_bundle(

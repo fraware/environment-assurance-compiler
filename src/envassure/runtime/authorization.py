@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from envassure.ir.models import ActorDefinition
@@ -13,7 +13,7 @@ from envassure.ir.models import ActorDefinition
 _ROLE_AUTH_RE = re.compile(r"^(?:role:|authz:|capability:)?(.+)$", re.IGNORECASE)
 
 
-class AuthDecision(str, Enum):
+class AuthDecision(StrEnum):
     ALLOW = "allow"
     DENY = "deny"
     INDETERMINATE = "indeterminate"

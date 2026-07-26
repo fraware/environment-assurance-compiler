@@ -95,8 +95,9 @@ def test_gym_enum_observation_round_trip_and_contains() -> None:
     from envassure.runtime.adapters.gymnasium_env import GymAssureEnv
 
     auth_world = _load_example_world("examples/auth/world.py", "build_auth_world")
-    inner = EventSourcedEnvironment(auth_world, default_actor_id="requester")
-    env = GymAssureEnv(inner, actor_id="requester")
+    requester = "requester"
+    inner = EventSourcedEnvironment(auth_world, default_actor_id=requester)
+    env = GymAssureEnv(inner, actor_id=requester)
 
     assert str(env.observation_space.spaces["request_status"])  # Discrete
     obs, _info = env.reset(seed=0, options={"episode_id": "gym-enum", "task_id": "get_approval"})
@@ -127,8 +128,9 @@ def test_gym_text_scalar_observation_contains() -> None:
     assert isinstance(space.spaces["requester_id"], gym.spaces.Text)
     assert isinstance(space.spaces["request_status"], gym.spaces.Discrete)
 
-    inner = EventSourcedEnvironment(auth_world, default_actor_id="approver")
-    env = GymAssureEnv(inner, actor_id="approver")
+    approver = "approver"
+    inner = EventSourcedEnvironment(auth_world, default_actor_id=approver)
+    env = GymAssureEnv(inner, actor_id=approver)
     obs, _info = env.reset(seed=0, options={"episode_id": "gym-text"})
     assert env.observation_space.contains(obs)
     assert obs["requester_id"] == ""
@@ -317,13 +319,13 @@ def test_gym_payload_dict_action_space_and_malformed() -> None:
     assert env.observation_space.contains(obs)
     assert info["reward_status"] == "configured"
 
-    obs, reward, term, trunc, info = env.step({"action_id": 0, "payload": {"value": 3}})
+    obs, reward, term, _trunc, info = env.step({"action_id": 0, "payload": {"value": 3}})
     assert reward == 1.0
     assert info["reward_status"] == "configured"
     assert int(obs["n"]) == 3
     assert term is False
 
-    with pytest.raises(AdapterSemanticsError, match="malformed|out of range|Dict action"):
+    with pytest.raises(AdapterSemanticsError, match=r"malformed|out of range|Dict action"):
         decode_action({"payload": {}}, action_ids=["set"], action_space=env.action_space)
 
     with pytest.raises(AdapterSemanticsError, match="out of range"):

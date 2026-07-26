@@ -25,7 +25,8 @@ concurrency:
 
 env:
   # Pin system OPA for fmt/test when the binary is installed (not vendored).
-  OPA_VERSION: "1.4.2"
+  # --fail-on-empty requires OPA >= 1.10.0
+  OPA_VERSION: "1.18.2"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:

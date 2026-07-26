@@ -48,8 +48,8 @@ maintainers:
 governance_owner: EnvAssure maintainers
 digests:
   hidden_oracle: b1c1f5d4cc3ac05f24f39063c1427cec28564b0c15f8c848db0ca55e51bc6b54
-  baseline_world: d70704ae434a52e0e1c892dd91dd2d3529519a695607db3afc9e8d113da95f45
-  pack_tree: 6f8ab18cd61278aacbcbd008a4d1149fa9e38f80fcc58440989bf863c498d2c1
+  baseline_world: 2eaa74502c16b6039999b018bb290fdc5bc32a016fb853a7810e3f688bc82cb4
+  pack_tree: 167d37842b165a4a338b72ac24b98c4e0fd9c26cae7c912cff1a5130bd66fd72
 includes:
   source_conflict: sources/conflict.yaml
   open_ambiguity: decisions/open-ambiguity.yaml

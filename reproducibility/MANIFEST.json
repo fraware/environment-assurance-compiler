@@ -1,8 +1,8 @@
 {
   "schema_version": "1",
   "bundle_id": "envassure-repro-bundle",
-  "source_commit": "03f852a7d32ab4ef868297503f62fed5b0227617",
-  "generated_at": "2026-07-26T10:22:25.771191+00:00",
+  "source_commit": "7e2ba9b5a7c4eea1d0ed7ac05694712eff88748f",
+  "generated_at": "2026-07-26T13:01:38.191485+00:00",
   "files": [
     {
       "path": "CITATION.cff",
@@ -26,22 +26,37 @@
     },
     {
       "path": "hardware-and-platform.json",
-      "sha256": "24a85f3d48e41f5a52a6bd82a427258d894bde5e6eb4b29fd9127a5513f61910",
+      "sha256": "073a703fd4d7cf3ed64449500dff7748b00dbbd058897408103e84a64cb12339",
       "size": 332
     },
     {
       "path": "inputs/packs/envassure-delegated-authorization/pack.yaml",
-      "sha256": "487efaefad3dda68344e90a3f4fc56b48b3a8c1241ce8b8b058a788b7a942477",
+      "sha256": "2b6a66268798b1e8b4c42d5c64ea9381efc9206ada2902462ac39cad91c2dcf0",
+      "size": 2026
+    },
+    {
+      "path": "inputs/packs/envassure-delegated-authorization/pack.yaml",
+      "sha256": "f316cc8f449ad85807ed1f4347a59b0ae00b7cc59355d88dcc9d416c9660f8e2",
       "size": 2026
     },
     {
       "path": "inputs/packs/envassure-stochastic-operations/pack.yaml",
-      "sha256": "9f1cda019ec30b39cec4a3daea009e3ae3d4d3494f6360e7f6ef30028bd52999",
+      "sha256": "732a8fc7de784b6709bbfd70369133257c4ba1f369d7f1a5735e155ef5f5e953",
+      "size": 2053
+    },
+    {
+      "path": "inputs/packs/envassure-stochastic-operations/pack.yaml",
+      "sha256": "832f724f462cc390eee9b5eb4477f70d31be0e9ea507bb807fb0edddf709e77c",
       "size": 2053
     },
     {
       "path": "inputs/packs/envassure-transactional-refund/pack.yaml",
-      "sha256": "c87f5a1b5858239dbef4719dfc34067f1450f07eb154b1158d2bc2e122aeab9c",
+      "sha256": "347be97c3088e991ccc6b1acb505be68bf1dcdcc386757a487deeb38bb2f4f7c",
+      "size": 2041
+    },
+    {
+      "path": "inputs/packs/envassure-transactional-refund/pack.yaml",
+      "sha256": "38177c5d76d3df7eb9c975248c2fa480340cce85bbe3aba0ad640b95275ae3bb",
       "size": 2041
     },
     {
@@ -56,7 +71,7 @@
     },
     {
       "path": "release-manifest.json",
-      "sha256": "58e0bc049238e7fb28aead3f60a84c4fb323204ec1e79f5ac4f35521bea717ed",
+      "sha256": "92d6eca71b78a4f8e786640d0d662c0ecff781c3d75f5124c10275ba7cc4de9f",
       "size": 493
     },
     {
@@ -76,7 +91,7 @@
     },
     {
       "path": "source-commit.txt",
-      "sha256": "61237492a30c7d332de2896b4d038de2864115f6160af824caf79ec2d0680a1d",
+      "sha256": "a22b50628f1fd6908f7cf0d1206f82410b420d20b2886a06bb26e2c4012c58cb",
       "size": 42
     },
     {
@@ -85,5 +100,5 @@
       "size": 2492
     }
   ],
-  "bundle_digest": "875121ccc3a8e7e6abab6cdcb1e88d01d6f0550b498699ecb731d0970842d5bc"
+  "bundle_digest": "f76995493d9ac8562fef9c80fc519475e7633b580714bb46af891143b4e4f05a"
 }

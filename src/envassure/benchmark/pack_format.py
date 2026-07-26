@@ -147,11 +147,7 @@ class PackInspectReport(BaseModel):
 def load_pack_manifest(path: Path) -> BenchmarkPackManifest:
     """Load and validate a pack.yaml (or JSON) document."""
     text = Path(path).read_text(encoding="utf-8")
-    data = (
-        yaml.safe_load(text)
-        if path.suffix.lower() in {".yaml", ".yml"}
-        else json.loads(text)
-    )
+    data = yaml.safe_load(text) if path.suffix.lower() in {".yaml", ".yml"} else json.loads(text)
     if not isinstance(data, dict):
         raise ValueError("pack manifest must be a mapping")
     return BenchmarkPackManifest.model_validate(data)
@@ -163,7 +159,7 @@ def _normalize_rel(path: str) -> str:
 
 def _iter_pack_files(root: Path) -> list[Path]:
     files: list[Path] = []
-    for path in sorted(root.rglob("*")):
+    for path in root.rglob("*"):
         if not path.is_file():
             continue
         rel = _normalize_rel(str(path.relative_to(root)))
@@ -172,6 +168,8 @@ def _iter_pack_files(root: Path) -> list[Path]:
         if any(part.startswith(".") for part in Path(rel).parts):
             continue
         files.append(path)
+    # Sort by POSIX-normalized relative path so digests match across OSes.
+    files.sort(key=lambda p: _normalize_rel(str(p.relative_to(root))))
     return files
 
 
@@ -180,12 +178,19 @@ def compute_pack_tree_digest(root: Path) -> str:
     parts: list[dict[str, str]] = []
     for path in _iter_pack_files(root):
         rel = _normalize_rel(str(path.relative_to(root)))
-        parts.append({"path": rel, "sha256": sha256_hex(path.read_bytes())})
+        parts.append({"path": rel, "sha256": compute_file_digest(path)})
     return canonical_hash(parts)
 
 
+def _normalize_text_newlines(data: bytes) -> bytes:
+    """Collapse CRLF/CR to LF so digests are stable under ``core.autocrlf``."""
+    if b"\0" in data:
+        return data
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
 def compute_file_digest(path: Path) -> str:
-    return sha256_hex(Path(path).read_bytes())
+    return sha256_hex(_normalize_text_newlines(Path(path).read_bytes()))
 
 
 def resolve_pack_schema_path() -> Path | None:
@@ -265,8 +270,7 @@ def lint_benchmark_pack(root: Path) -> DiagnosticReport:
                 make_diagnostic(
                     "EAC8003",
                     reason=(
-                        f"pack_id {manifest.pack_id!r} does not match directory "
-                        f"name {root.name!r}"
+                        f"pack_id {manifest.pack_id!r} does not match directory name {root.name!r}"
                     ),
                     subject=manifest.pack_id,
                 )

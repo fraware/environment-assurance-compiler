@@ -1,0 +1,10 @@
+# Force LF in the repo so pack digests match Linux CI regardless of
+# contributors' core.autocrlf settings. Digest code also normalizes newlines.
+packs/** text eol=lf
+reproducibility/** text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+*.sh text eol=lf

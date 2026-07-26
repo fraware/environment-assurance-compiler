@@ -160,9 +160,7 @@ class PettingZooAssureEnv:
             action_id = self._resolve_action(agent, action)
             result: StepResult = self._env.step(agent, action_id)
             observations[agent] = self._encode_agent_obs(agent, result.observation)
-            reward, reward_status = resolve_reward(
-                self._reward_provider, result, actor_id=agent
-            )
+            reward, reward_status = resolve_reward(self._reward_provider, result, actor_id=agent)
             rewards[agent] = reward
             terminated, truncated = episode_termination_flags(result, self._env)
             terminations[agent] = terminated

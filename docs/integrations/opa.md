@@ -8,7 +8,7 @@ Rego v1 OPA bundle; evidence feeds the assurance case.
 ```bash
 pip install envassure[opa]   # documents the system OPA dependency
 # Install a pinned OPA binary on PATH for test/evaluate (not vendored).
-# integrations.yml currently installs OPA 1.4.2 on the opa matrix job.
+# integrations.yml currently installs OPA 1.18.2 on the opa matrix job.
 ```
 
 ## CLI

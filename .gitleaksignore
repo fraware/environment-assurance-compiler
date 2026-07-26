@@ -1,0 +1,4 @@
+# False positives: gitleaks generic-api-key matched keyword kwargs
+# `default_actor_id="…"` in gym adapter tests (no secrets).
+0aa4f91a3f35a9539d81d516ee2cce69e1e96377:tests/test_adapters_release.py:generic-api-key:98
+0aa4f91a3f35a9539d81d516ee2cce69e1e96377:tests/test_adapters_release.py:generic-api-key:130
