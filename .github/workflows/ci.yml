@@ -1,11 +1,12 @@
 name: CI
 
 # Job policy (blocking vs advisory):
-#   BLOCKING — lint-type-test, smoke, package, docs, counter-e2e, schemas,
-#              extras-import, benchmark, secret-scan, dependency-audit, codeql,
+#   BLOCKING — lint-type-test, smoke, package (incl. §4.4 acceptance), docs,
+#              counter-e2e, schemas, extras-import, benchmark,
 #              coverage fail-under gates (overall / cores / assurance / semantic).
 #   ADVISORY — sbom-preview (informational CycloneDX artifact; signing lives on
 #              the Release workflow). continue-on-error only here.
+# Security gates (gitleaks, pip-audit, CodeQL, image/fs scan): security.yml
 # Schedule: see nightly-empirical.yml for uncapped concealed benchmarks.
 
 on:
@@ -143,7 +144,11 @@ jobs:
       - name: Install extra
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[${{ matrix.extra }}]"
+          if [ "${{ matrix.extra }}" = "gym" ] || [ "${{ matrix.extra }}" = "pettingzoo" ]; then
+            pip install -e ".[${{ matrix.extra }},dev]"
+          else
+            pip install -e ".[${{ matrix.extra }}]"
+          fi
       - name: Import smoke
         run: |
           python - <<'PY'
@@ -177,6 +182,14 @@ jobs:
               raise SystemExit(f"unknown extra: {extra}")
           print(f"extra ok: {extra}", file=sys.stderr)
           PY
+      - name: Adapter semantic release tests
+        if: matrix.extra == 'gym' || matrix.extra == 'pettingzoo'
+        run: |
+          if [ "${{ matrix.extra }}" = "gym" ]; then
+            pytest -m gym tests/test_adapters_release.py
+          else
+            pytest -m pettingzoo tests/test_adapters_release.py
+          fi
 
   benchmark:
     name: offline benchmark regression
@@ -201,7 +214,7 @@ jobs:
         run: eac benchmark --concealed --max-probes 20 --json
 
   package:
-    name: sdist / wheel + clean install
+    name: sdist / wheel + package acceptance
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -213,19 +226,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip build
           python -m build
-      - name: Clean install from wheel
+      - name: Clean install from wheel + acceptance (§4.4)
         run: |
           python -m venv /tmp/eac-wheel
           /tmp/eac-wheel/bin/pip install --upgrade pip
           /tmp/eac-wheel/bin/pip install dist/*.whl
           /tmp/eac-wheel/bin/eac --version
           /tmp/eac-wheel/bin/eac --help
+          /tmp/eac-wheel/bin/python scripts/check_package_acceptance.py \
+            --repo-root . \
+            --dist-dir dist
       - name: Clean install from sdist
         run: |
           python -m venv /tmp/eac-sdist
           /tmp/eac-sdist/bin/pip install --upgrade pip
           /tmp/eac-sdist/bin/pip install dist/*.tar.gz
           /tmp/eac-sdist/bin/eac --version
+          /tmp/eac-sdist/bin/python -c "import envassure; print(envassure.__version__)"
 
   docs:
     name: mkdocs build (strict)
@@ -291,6 +308,8 @@ jobs:
               "world-0.2.0.json",
               "pack-manifest.json",
               "pack-manifest-1.json",
+              "pack-manifest-2.json",
+              "release-manifest-1.json",
           ]
           for name in required:
               path = root / name
@@ -301,6 +320,10 @@ jobs:
           world = json.loads((root / "world.json").read_text(encoding="utf-8"))
           current = json.loads((root / "world-0.2.0.json").read_text(encoding="utf-8"))
           assert world == current, "schemas/world.json must alias world-0.2.0.json"
+
+          pack = json.loads((root / "pack-manifest.json").read_text(encoding="utf-8"))
+          pack_current = json.loads((root / "pack-manifest-2.json").read_text(encoding="utf-8"))
+          assert pack == pack_current, "schemas/pack-manifest.json must alias pack-manifest-2.json"
 
           # Fixture / example IR documents must be parseable JSON objects.
           samples = [
@@ -324,46 +347,6 @@ jobs:
           WorldDefinition.model_validate_json(path.read_text(encoding="utf-8"))
           print("counter IR validates against WorldDefinition")
           PY
-
-  secret-scan:
-    name: gitleaks secret scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install gitleaks
-        env:
-          GITLEAKS_VERSION: "8.28.0"
-        run: |
-          set -euo pipefail
-          curl -sSfL \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz gitleaks
-          ./gitleaks version
-      - name: Scan repository history
-        run: ./gitleaks detect --source . --verbose --redact --no-banner
-
-  dependency-audit:
-    name: pip-audit (blocking)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Audit clean runtime install
-        run: |
-          python -m pip install --upgrade pip
-          # Isolate from the runner image / cache so only declared runtime
-          # dependencies are audited (blocking). Transient upstream advisories
-          # should be fixed or explicitly ignored with a tracked reason — do
-          # not re-add continue-on-error casually.
-          python -m venv /tmp/eac-audit
-          /tmp/eac-audit/bin/pip install --upgrade pip pip-audit
-          /tmp/eac-audit/bin/pip install .
-          /tmp/eac-audit/bin/pip-audit --progress-spinner=off
 
   sbom-preview:
     name: CycloneDX SBOM preview (advisory)
@@ -391,25 +374,3 @@ jobs:
           path: sbom.cdx.json
           if-no-files-found: warn
 
-  codeql:
-    name: CodeQL (Python)
-    # Same-repo only: fork PRs cannot upload SARIF with security-events: write.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      contents: read
-      actions: read
-    steps:
-      - uses: actions/checkout@v4
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: python
-          queries: security-extended
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-      - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:python"

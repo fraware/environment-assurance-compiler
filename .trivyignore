@@ -1,0 +1,2 @@
+# Optional Trivy ignore rules (CVE IDs). Prefer fixing or pinning over ignores.
+# Empty by default — security.yml fails closed on unresolved CRITICAL findings.
