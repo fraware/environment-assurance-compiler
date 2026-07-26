@@ -14,6 +14,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 from envassure.canonical import canonical_hash
+from envassure.fidelity.ledger import FidelityLedger, ledger_from_world
 from envassure.ir.models import AmbiguityRecord, WorldDefinition
 
 # Spec §20 outline — HTML and JSON expose these section ids stably.
@@ -78,6 +79,7 @@ class AssuranceCase(BaseModel):
     generated_at: str
     declared_fidelity_level: str
     fidelity_profile: list[FidelityDimensionEvidence] = Field(default_factory=list)
+    fidelity_ledger: FidelityLedger | None = None
     claims: list[AssuranceClaim] = Field(default_factory=list)
     sections: list[AssuranceSection] = Field(default_factory=list)
     diagnostics_summary: dict[str, int] = Field(default_factory=dict)
@@ -108,9 +110,14 @@ def build_assurance_case(
     dynamic_validation: dict[str, Any] | None = None,
     differential: dict[str, Any] | None = None,
     proof_obligations: Any | None = None,
+    fidelity_ledger: FidelityLedger | None = None,
     generated_at: str | None = None,
 ) -> AssuranceCase:
-    """Build an AssuranceCase from IR and optional canonical artifact digests/payloads."""
+    """Build an AssuranceCase from IR and optional canonical artifact digests/payloads.
+
+    Sections 20.3 / 20.4 treat ``fidelity_ledger`` as the source of truth for
+    scoped fidelity claims. No aggregate score is computed or stored.
+    """
     ir_digest = canonical_hash(world.content_dict())
     diag_list = diagnostics or []
     summary: dict[str, int] = {}
@@ -121,20 +128,16 @@ def build_assurance_case(
     artifact_map = dict(artifacts or {})
     artifact_map.setdefault("ir", ir_digest)
 
-    fidelity: list[FidelityDimensionEvidence] = [
-        FidelityDimensionEvidence(
-            dimension="schema",
-            level=world.declared_fidelity_level,
-            evidence_refs=[f"ir:{ir_digest[:12]}"],
-            notes="Declared fidelity is not a composite score.",
-        ),
-        FidelityDimensionEvidence(
-            dimension="determinism",
-            level=world.determinism,
-            evidence_refs=[f"ir:{ir_digest[:12]}"],
-        ),
-    ]
-    if differential:
+    ledger = fidelity_ledger or ledger_from_world(world)
+    if ledger.environment_id != world.environment_id:
+        raise ValueError(
+            f"fidelity ledger environment_id {ledger.environment_id!r} "
+            f"does not match world {world.environment_id!r}"
+        )
+    artifact_map["fidelity_ledger"] = ledger.content_digest()
+
+    fidelity: list[FidelityDimensionEvidence] = _profile_from_ledger(ledger, ir_digest=ir_digest)
+    if differential and not any(f.dimension == "differential" for f in fidelity):
         fidelity.append(
             FidelityDimensionEvidence(
                 dimension="differential",
@@ -144,7 +147,7 @@ def build_assurance_case(
             )
         )
 
-    claims: list[AssuranceClaim] = []
+    claims: list[AssuranceClaim] = _claims_from_ledger(ledger)
     for verifier in world.verifiers:
         claims.append(
             AssuranceClaim(
@@ -167,6 +170,7 @@ def build_assurance_case(
         world,
         ir_digest=ir_digest,
         fidelity=fidelity,
+        fidelity_ledger=ledger,
         claims=claims,
         diagnostics=diag_list,
         summary=summary,
@@ -189,6 +193,7 @@ def build_assurance_case(
         generated_at=generated_at or datetime.now(UTC).isoformat(),
         declared_fidelity_level=world.declared_fidelity_level,
         fidelity_profile=fidelity,
+        fidelity_ledger=ledger,
         claims=claims,
         sections=sections,
         diagnostics_summary=summary,
@@ -202,6 +207,8 @@ def build_assurance_case(
             "release_ready": not release_blocked,
             "proof_obligation_count": len(getattr(proof_obligations, "obligations", []) or []),
             "proof_obligation_disclaimer": getattr(proof_obligations, "disclaimer", None),
+            "fidelity_ledger_digest": ledger.content_digest(),
+            "fidelity_claim_count": len(ledger.claims),
         },
     )
 
@@ -382,6 +389,7 @@ def _build_sections(
     *,
     ir_digest: str,
     fidelity: list[FidelityDimensionEvidence],
+    fidelity_ledger: FidelityLedger,
     claims: list[AssuranceClaim],
     diagnostics: list[dict[str, Any]],
     summary: dict[str, int],
@@ -441,31 +449,72 @@ def _build_sections(
         id="20.3",
         title="Fidelity profile",
         body=[
-            "Fidelity is multi-dimensional; declared level is not a composite score.",
+            "Fidelity is multi-dimensional; the fidelity ledger is the §20.3 source of truth.",
+            "Declared level is not a composite score; no aggregate score is computed.",
             f"Declared fidelity level: {world.declared_fidelity_level}.",
+            f"Ledger digest: {fidelity_ledger.content_digest()}.",
+            f"{len(fidelity_ledger.claims)} scoped ledger claim(s).",
         ],
         tables=[
             {
-                "caption": "Fidelity dimensions",
+                "caption": "Fidelity ledger (status x scope)",
+                "headers": ["Status", "Dimension", "Elements", "Coverage", "Gaps"],
+                "rows": [
+                    [
+                        c.status,
+                        c.scope.dimension or "",
+                        ", ".join(c.scope.element_ids) or "(none)",
+                        c.coverage,
+                        "; ".join(c.known_gaps) or "(none)",
+                    ]
+                    for c in fidelity_ledger.claims
+                ]
+                or [["—", "—", "—", "—", "(none)"]],
+            },
+            {
+                "caption": "Fidelity dimensions (derived view)",
                 "headers": ["Dimension", "Level", "Notes"],
                 "rows": [[f.dimension, f.level, f.notes or ""] for f in fidelity],
-            }
+            },
         ],
-        artifact_refs=[r for f in fidelity for r in f.evidence_refs],
+        artifact_refs=[
+            f"fidelity_ledger:{fidelity_ledger.content_digest()[:16]}",
+            *[r for f in fidelity for r in f.evidence_refs],
+        ],
     )
 
     by_id["20.4"] = AssuranceSection(
         id="20.4",
         title="Claims and evidence",
         body=[
-            f"{len(claims)} claim(s) derived from verifier definitions and extras.",
+            "§20.4 claims are derived from the fidelity ledger plus verifier definitions.",
+            f"{len(fidelity_ledger.claims)} ledger claim(s); "
+            f"{sum(1 for c in claims if c.id.startswith('claim.verifier.'))} verifier claim(s).",
         ],
         tables=[
             {
-                "caption": "Claims",
+                "caption": "Fidelity ledger claims",
+                "headers": ["Status", "Reviewer", "Claim", "Evidence"],
+                "rows": [
+                    [
+                        c.status,
+                        c.reviewer or "",
+                        c.claim,
+                        "; ".join(c.evidence) or "(none)",
+                    ]
+                    for c in fidelity_ledger.claims
+                ]
+                or [["—", "—", "(none)", "—"]],
+            },
+            {
+                "caption": "All claims",
                 "headers": ["Id", "Status", "Statement"],
                 "rows": [[c.id, c.status, c.statement] for c in claims] or [["—", "—", "(none)"]],
-            }
+            },
+        ],
+        artifact_refs=[
+            f"fidelity_ledger:{fidelity_ledger.content_digest()[:16]}",
+            *[ref for c in fidelity_ledger.claims for ref in c.evidence],
         ],
     )
 
@@ -616,6 +665,53 @@ def _build_sections(
     )
 
     return [by_id[sid] for sid, _title in ASSURANCE_CASE_SECTIONS]
+
+
+def _profile_from_ledger(
+    ledger: FidelityLedger,
+    *,
+    ir_digest: str,
+) -> list[FidelityDimensionEvidence]:
+    """Derive the legacy dimension view from ledger claims (no scoring)."""
+    profile: list[FidelityDimensionEvidence] = []
+    for idx, claim in enumerate(ledger.claims):
+        dimension = claim.scope.dimension or f"claim_{idx}"
+        profile.append(
+            FidelityDimensionEvidence(
+                dimension=dimension,
+                level=claim.status,
+                evidence_refs=list(claim.evidence) or [f"ir:{ir_digest[:12]}"],
+                notes=(
+                    f"{claim.claim}"
+                    + (f" Gaps: {'; '.join(claim.known_gaps)}" if claim.known_gaps else "")
+                ),
+            )
+        )
+    if not profile:
+        profile.append(
+            FidelityDimensionEvidence(
+                dimension="schema",
+                level="unassessed",
+                evidence_refs=[f"ir:{ir_digest[:12]}"],
+                notes="Empty fidelity ledger; declared level is not a composite score.",
+            )
+        )
+    return profile
+
+
+def _claims_from_ledger(ledger: FidelityLedger) -> list[AssuranceClaim]:
+    out: list[AssuranceClaim] = []
+    for idx, claim in enumerate(ledger.claims):
+        out.append(
+            AssuranceClaim(
+                id=f"claim.fidelity.{idx}",
+                statement=claim.claim,
+                status=claim.status,
+                evidence_refs=list(claim.evidence),
+                residual_risk="; ".join(claim.known_gaps) or None,
+            )
+        )
+    return out
 
 
 def _section_body_from_artifact(payload: dict[str, Any], *, empty: str) -> list[str]:
