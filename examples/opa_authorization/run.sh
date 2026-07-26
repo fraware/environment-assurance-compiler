@@ -30,8 +30,8 @@ eac obligations generate input/world.json -o "${BUNDLE}" --allow-unsupported --j
   | tee "${OUT_DIR}/generate.json"
 
 if command -v opa >/dev/null 2>&1; then
-  echo "==> opa fmt --check + opa test"
-  opa fmt --check "${BUNDLE}/policy.rego" "${BUNDLE}/policy_test.rego"
+  echo "==> opa fmt --list --fail + opa test"
+  opa fmt --list --fail "${BUNDLE}/policy.rego" "${BUNDLE}/policy_test.rego"
   opa test --fail-on-empty "${BUNDLE}"
   echo "==> eac obligations evaluate"
   eac obligations evaluate "${BUNDLE}" -i input/eval-allow.json --json \
