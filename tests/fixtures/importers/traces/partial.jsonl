@@ -1,0 +1,2 @@
+{"ts": "2026-03-01T10:00:01Z", "action": "submit_refund", "request_id": "partial-1"}
+{"ts": "2026-03-01T10:00:02Z", "action": "check_status", "request_id": "partial-2"}

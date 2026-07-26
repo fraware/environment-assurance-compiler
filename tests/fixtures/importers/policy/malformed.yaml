@@ -1,0 +1,4 @@
+permissions:
+  - role: agent
+    action: submit_refund
+    effect: allow_maybe

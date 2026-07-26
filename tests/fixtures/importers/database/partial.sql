@@ -1,0 +1,3 @@
+CREATE TABLE refunds (
+  id UUID PRIMARY KEY
+);

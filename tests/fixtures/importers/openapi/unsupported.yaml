@@ -1,0 +1,22 @@
+openapi: "3.0.3"
+info:
+  title: Unsupported Callbacks API
+  version: "1.0.0"
+paths:
+  /events:
+    post:
+      operationId: publish_event
+      callbacks:
+        onEvent:
+          "{$request.body#/url}":
+            post:
+              responses:
+                "200": {description: ok}
+      responses:
+        "200":
+          description: ok
+webhooks:
+  newPet:
+    post:
+      responses:
+        "200": {description: ok}

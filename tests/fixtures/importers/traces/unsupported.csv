@@ -1,0 +1,3 @@
+action,outcome,ts
+submit_refund,timeout,2026-03-01T10:00:01Z
+submit_refund,ok,2026-03-01T10:01:20Z

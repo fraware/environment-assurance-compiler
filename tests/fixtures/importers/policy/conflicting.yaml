@@ -1,0 +1,9 @@
+roles:
+  - agent
+permissions:
+  - role: agent
+    action: submit_refund
+    effect: allow
+  - role: agent
+    action: submit_refund
+    effect: deny
