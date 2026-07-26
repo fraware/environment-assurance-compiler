@@ -2,6 +2,10 @@
 
 Thanks for your interest in EnvAssure (`envassure` / `eac`).
 
+Extended guides (development, adapters, packs, defects, release runbook) live
+under [`docs/contributing/`](docs/contributing/) and are linked from
+[`docs/contributing.md`](docs/contributing.md).
+
 ## Development setup
 
 1. Use **Python 3.11, 3.12, or 3.13**.
@@ -26,11 +30,17 @@ Thanks for your interest in EnvAssure (`envassure` / `eac`).
    Coverage floors and SBOM / attestation verify steps are documented in
    [`docs/security/supply-chain.md`](docs/security/supply-chain.md).
 
-4. Optional docs build:
+4. Optional docs build (includes **mike** for versioned deploys):
 
    ```bash
    pip install -e ".[docs]"
    mkdocs build --strict
+   ```
+
+5. Optional public-example contract lint:
+
+   ```bash
+   python scripts/lint_example_manifests.py
    ```
 
 Baseline capture commands for the 0.2 track are listed in
@@ -54,17 +64,37 @@ Before opening a pull request:
 - [ ] Security-sensitive changes note trust-boundary impact (see
       [`docs/security/threat-model.md`](docs/security/threat-model.md)).
 
+## Developer Certificate of Origin (DCO)
+
+All contributions must be signed off under the
+[Developer Certificate of Origin](https://developercertificate.org/) v1.1.
+Each commit message must include:
+
+```text
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+Use `git commit -s` (or your forge’s “sign-off” option) so the trailer is
+added automatically. Unsigned commits are rejected.
+
+By signing off, you certify that you have the right to submit the work under
+the project’s Apache-2.0 license (see [`LICENSE`](LICENSE)).
+
 ## Pull requests
 
-- Prefer small, reviewable changes; **require review before merging to `main`**
-  during the 0.2 remediation window (see release-readiness PR merge discipline).
-- Do not expand top-level CLI commands, adapters, or extras while R01–R12 are
-  open unless the change is required for correctness remediation.
+- Prefer small, reviewable changes; **require review before merging to `main`**.
+- **Security-critical paths** (workflows, authorization, snapshots, packaging,
+  diagnostics catalog, supply-chain docs, Dockerfile, release scripts — see
+  [`.github/CODEOWNERS`](.github/CODEOWNERS)) require **two** approving reviews
+  from maintainers listed in [`MAINTAINERS.md`](MAINTAINERS.md).
 - Unimplemented CLI surfaces must fail closed with a stable diagnostic and a
   non-zero exit code (never exit `0` as success).
 - Public IR schema changes need a design note, examples, compatibility analysis,
   migration plan, and at least two environment use cases (see governance in the
   project spec §25.4).
+- Releases follow
+  [`docs/contributing/release-process.md`](docs/contributing/release-process.md)
+  (signed annotated `v*` tags, GitHub Environments, trusted publishing).
 
 ## Code standards
 

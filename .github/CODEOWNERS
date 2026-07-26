@@ -1,0 +1,22 @@
+# CODEOWNERS — default review routing for EnvAssure.
+#
+# GitHub requires real usernames or teams. Keep this file aligned with
+# MAINTAINERS.md. Paths listed under "Security-critical" require two approving
+# reviews from the owners below (also enforced by branch protection / rulesets;
+# see docs/contributing/release-process.md).
+
+# Default: all paths
+* @fraware
+
+# Security-critical surfaces (two-reviewer rule in CONTRIBUTING / release-process)
+/.github/workflows/ @fraware
+/src/envassure/runtime/authorization.py @fraware
+/src/envassure/runtime/snapshot.py @fraware
+/src/envassure/packaging/ @fraware
+/src/envassure/diagnostics/ @fraware
+/docs/security/ @fraware
+/SECURITY.md @fraware
+/Dockerfile @fraware
+/scripts/check_tag_version.py @fraware
+/scripts/generate_release_manifest.py @fraware
+/scripts/check_package_acceptance.py @fraware
