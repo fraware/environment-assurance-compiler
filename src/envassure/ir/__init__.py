@@ -16,7 +16,7 @@ from envassure.ir.models import (
     VerifierClaim,
     WorldDefinition,
 )
-from envassure.ir.primitives import IR_VERSION, ProvenanceRef
+from envassure.ir.primitives import IR_VERSION, OriginKind, ProvenanceRef
 from envassure.ir.schema import export_schemas, world_json_schema
 from envassure.ir.validate import ReleaseProfile, validate_world
 
@@ -28,6 +28,7 @@ __all__ = [
     "EvidenceObligation",
     "FailureDefinition",
     "ObservationProjection",
+    "OriginKind",
     "ProvenanceRef",
     "ReleaseProfile",
     "StateVariable",

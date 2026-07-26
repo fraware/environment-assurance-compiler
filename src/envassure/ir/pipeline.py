@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -12,6 +13,7 @@ from envassure.diagnostics.models import Diagnostic, DiagnosticReport, Severity
 from envassure.expressions import validate_expression
 from envassure.expressions.parser import parse_effect
 from envassure.ir.models import WorldDefinition
+from envassure.ir.primitives import ProvenanceRef
 from envassure.obligations import validate_obligations
 from envassure.runtime.authorization import compile_authorization
 from envassure.runtime.observations import validate_observation_projections
@@ -31,6 +33,7 @@ class ReleaseProfile(str, Enum):
 
 PIPELINE_PASSES: tuple[str, ...] = (
     "schema",
+    "provenance",
     "refs",
     "types",
     "transitions",
@@ -176,6 +179,10 @@ def run_validation_pipeline(
     passes_run.append("schema")
     _pass_schema(world, report)
 
+    # --- provenance origin_kind integrity ---
+    passes_run.append("provenance")
+    _pass_provenance_origins(world, report)
+
     # --- refs + types (reference integrity foundation) ---
     passes_run.append("refs")
     passes_run.append("types")
@@ -234,9 +241,7 @@ def run_validation_pipeline(
         ReleaseProfile.DIFFERENTIAL,
         ReleaseProfile.RESEARCH_RELEASE,
         ReleaseProfile.DEPLOYMENT_CALIBRATION,
-    } or (
-        release == ReleaseProfile.EXECUTABLE and world.tasks
-    ):
+    } or (release == ReleaseProfile.EXECUTABLE and world.tasks):
         # Executable checks tasks when present; research+ always.
         report.extend(validate_release_tasks(world).diagnostics)
 
@@ -311,6 +316,86 @@ def _pass_schema(world: WorldDefinition, report: DiagnosticReport) -> None:
                 subject=world.environment_id,
             )
         )
+
+
+def _pass_provenance_origins(world: WorldDefinition, report: DiagnosticReport) -> None:
+    """Reject provenance that claims source_derived for inferred/conflict origins."""
+    from envassure.ir.primitives import ORIGIN_KINDS, validate_provenance_origin
+
+    for kind, element_id, provenance in _iter_element_provenance(world):
+        subject = f"{kind}:{element_id}"
+        if provenance.origin_kind is not None and provenance.origin_kind not in ORIGIN_KINDS:
+            report.add(
+                make_diagnostic(
+                    "EAC3008",
+                    subject=subject,
+                    reason=f"unknown origin_kind {provenance.origin_kind!r}",
+                )
+            )
+            continue
+        # Open ambiguities must not claim source_derived / human_decision without a decision.
+        if kind == "ambiguity":
+            amb = next(a for a in world.ambiguities if a.id == element_id)
+            if amb.status == "open" and provenance.origin_kind in {
+                "source_derived",
+                "human_decision",
+            }:
+                report.add(
+                    make_diagnostic(
+                        "EAC3008",
+                        subject=subject,
+                        reason=(
+                            f"open ambiguity cannot use origin_kind={provenance.origin_kind!r}; "
+                            "use unresolved_conflict until decided"
+                        ),
+                    )
+                )
+        # Notes may carry an explicit derivation hint used by compilers/tests.
+        note = (provenance.notes or "").lower()
+        derivation_hints: list[str] = []
+        if "derivation_class=inferred" in note or "derivation:inferred" in note:
+            derivation_hints.append("inferred")
+        if "derivation_class=direct" in note or "derivation:direct" in note:
+            derivation_hints.append("direct")
+        reason = validate_provenance_origin(
+            provenance,
+            derivation_classes=derivation_hints,
+            subject=subject,
+        )
+        if reason:
+            report.add(
+                make_diagnostic(
+                    "EAC3008",
+                    subject=subject,
+                    reason=reason,
+                )
+            )
+
+
+def _iter_element_provenance(
+    world: WorldDefinition,
+) -> Iterator[tuple[str, str, ProvenanceRef]]:
+    for state in world.state:
+        yield "state", state.id, state.provenance
+    for action in world.actions:
+        yield "action", action.id, action.provenance
+    for actor in world.actors:
+        yield "actor", actor.id, actor.provenance
+    for transition in world.transitions:
+        yield "transition", transition.id, transition.provenance
+    for observation in world.observations:
+        yield "observation", observation.id, observation.provenance
+    for failure in world.failures:
+        yield "failure", failure.id, failure.provenance
+    for task in world.tasks:
+        yield "task", task.id, task.provenance
+    for verifier in world.verifiers:
+        yield "verifier", verifier.id, verifier.provenance
+    for obligation in world.evidence_obligations:
+        yield "evidence_obligation", obligation.id, obligation.provenance
+    for ambiguity in world.ambiguities:
+        yield "ambiguity", ambiguity.id, ambiguity.provenance
+    yield "world", world.environment_id, world.provenance
 
 
 def _pass_refs_and_types(world: WorldDefinition, report: DiagnosticReport) -> None:
@@ -515,13 +600,12 @@ def _pass_runtime_support(
                     continue
                 try:
                     parse_effect(part)
-                except Exception as exc:  # noqa: BLE001 — map any parse failure
+                except Exception as exc:
                     report.add(
                         make_diagnostic(
                             "EAC4001",
                             reason=(
-                                f"action {action.id!r} effect {part!r} "
-                                f"failed to compile: {exc}"
+                                f"action {action.id!r} effect {part!r} failed to compile: {exc}"
                             ),
                             subject=action.id,
                         )
@@ -613,19 +697,21 @@ def _pass_release_readiness(
                     )
                 )
 
-    if profile is ReleaseProfile.DEPLOYMENT_CALIBRATION:
-        if world.declared_fidelity_level in {"", "EF-0"}:
-            report.add(
-                make_diagnostic(
-                    "EAC3007",
-                    profile=profile.value,
-                    reason=(
-                        "deployment_calibration requires declared_fidelity_level "
-                        f"above EF-0 (got {world.declared_fidelity_level!r})"
-                    ),
-                    subject=world.environment_id,
-                )
+    if profile is ReleaseProfile.DEPLOYMENT_CALIBRATION and world.declared_fidelity_level in {
+        "",
+        "EF-0",
+    }:
+        report.add(
+            make_diagnostic(
+                "EAC3007",
+                profile=profile.value,
+                reason=(
+                    "deployment_calibration requires declared_fidelity_level "
+                    f"above EF-0 (got {world.declared_fidelity_level!r})"
+                ),
+                subject=world.environment_id,
             )
+        )
 
 
 def _check_unique(report: DiagnosticReport, kind: str, ids: list[str]) -> None:

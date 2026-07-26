@@ -23,6 +23,9 @@ def transform_0_1_0_to_0_2_0(payload: dict[str, Any]) -> dict[str, Any]:
     * **Normalized default:** ``state_model_version`` ``"1"`` → ``"1.0"``.
     * **Optional rename:** deprecated top-level ``profile`` (if present) is
       copied into ``assurance_profile`` and removed.
+
+    Note: ``ProvenanceRef.origin_kind`` is additive on the write-current 0.2.0
+    schema and does not require a cross-minor transform (absent → ``null``).
     """
     out = dict(payload)
     notes: list[str] = []
