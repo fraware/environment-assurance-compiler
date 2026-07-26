@@ -118,9 +118,7 @@ def refine_command(
                 "intake_digest": result.intake.content_digest(),
                 "closed": loop_result.closed,
                 "close_evidence": loop_result.close_evidence,
-                "accepted_fact_ids": result.generation.reconciliation.get(
-                    "accepted_fact_ids", []
-                ),
+                "accepted_fact_ids": result.generation.reconciliation.get("accepted_fact_ids", []),
                 "ambiguity_ids": [a.id for a in result.ambiguities],
                 "corrected_fact_ids": [f.fact_id for f in result.corrected_facts],
                 "transition_patches": [

@@ -73,10 +73,7 @@ def benchmark_command(
             output.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         emit_success(
             as_json=as_json,
-            message=(
-                f"Concealed suite: {len(reports)} workflow(s) "
-                f"({', '.join(WORKFLOW_IDS)})"
-            ),
+            message=(f"Concealed suite: {len(reports)} workflow(s) ({', '.join(WORKFLOW_IDS)})"),
             report=report,
             extra={"reports": payload, "output": str(output) if output else None},
         )

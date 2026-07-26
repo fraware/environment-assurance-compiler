@@ -8,9 +8,13 @@ from typing import Any
 
 import typer
 
-from envassure.cli.output import emit_success
+from envassure.cli.output import emit_report, emit_success
+from envassure.diagnostics.exit_codes import ExitCode
+from envassure.diagnostics.factory import make_diagnostic
+from envassure.diagnostics.models import DiagnosticReport
 from envassure.ir.io import load_world
 from envassure.runtime.engine import EventSourcedEnvironment
+from envassure.runtime.events import EventLogValidationError, validate_event_log
 from envassure.runtime.snapshot import Snapshot
 
 
@@ -146,34 +150,89 @@ def replay_command(
     ),
     as_json: bool = typer.Option(False, "--json"),
 ) -> None:
-    """Replay an action sequence and verify deterministic digests."""
+    """Replay an action sequence and verify deterministic digests (fail closed)."""
     seq = _parse_actions(actions)
-    env_a = _build_env(ir_path, seed=seed)
-    steps_a = _run_sequence(env_a, seq)
-    digest_a = env_a.snapshot().digests
-
-    env_b = _build_env(ir_path, seed=seed)
     restored = False
-    if snapshot_path is not None:
-        data = json.loads(snapshot_path.read_text(encoding="utf-8"))
-        if not data.get("rng"):
-            data["rng"] = {"seed": data.get("seed", seed)}
-        env_b.restore(Snapshot.model_validate(data))
-        restored = True
-        steps_b = _run_sequence(env_b, seq) if seq else []
-        # Restore path: success means snapshot loaded and steps applied without crash.
-        match = True
-        digest_b = env_b.snapshot().digests
-    else:
-        steps_b = _run_sequence(env_b, seq)
-        digest_b = env_b.snapshot().digests
-        match = digest_a == digest_b
+    steps_a: list[dict[str, Any]] = []
+    steps_b: list[dict[str, Any]] = []
+    digest_a: dict[str, str] = {}
+    digest_b: dict[str, str] = {}
+    match = False
+    try:
+        env_a = _build_env(ir_path, seed=seed)
+        steps_a = _run_sequence(env_a, seq)
+        validate_event_log(env_a.snapshot().event_log)
+        digest_a = env_a.snapshot().digests
+
+        env_b = _build_env(ir_path, seed=seed)
+        if snapshot_path is not None:
+            data = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            if not data.get("rng"):
+                data["rng"] = {"seed": data.get("seed", seed)}
+            snap = Snapshot.model_validate(data)
+            validate_event_log(snap.event_log)
+            env_b.restore(snap)
+            restored = True
+            steps_b = _run_sequence(env_b, seq) if seq else []
+            validate_event_log(env_b.snapshot().event_log)
+            digest_b = env_b.snapshot().digests
+            # Restore path checks reconstruct equality (also enforced inside restore)
+            # plus post-continue consistency — not fresh-run digest equality.
+            match = env_b.state() == env_b.state_from_events()
+        else:
+            steps_b = _run_sequence(env_b, seq)
+            validate_event_log(env_b.snapshot().event_log)
+            digest_b = env_b.snapshot().digests
+            match = digest_a == digest_b
+    except EventLogValidationError as exc:
+        report = DiagnosticReport()
+        report.add(
+            make_diagnostic(
+                "EAC9007",
+                reason=f"event log validation failed: {exc}",
+                subject=str(ir_path),
+            )
+        )
+        emit_report(report, as_json=as_json, exit_code=ExitCode.ERROR)
+    except (OSError, json.JSONDecodeError, ValueError, RuntimeError, TypeError) as exc:
+        report = DiagnosticReport()
+        report.add(
+            make_diagnostic(
+                "EAC9007",
+                reason=str(exc),
+                subject=str(snapshot_path or ir_path),
+            )
+        )
+        emit_report(report, as_json=as_json, exit_code=ExitCode.ERROR)
+
+    if not match:
+        report = DiagnosticReport()
+        report.add(
+            make_diagnostic(
+                "EAC9007",
+                reason="replay digests diverged or restored state failed reconstruction",
+                subject=str(ir_path),
+            )
+        )
+        emit_report(
+            report,
+            as_json=as_json,
+            exit_code=ExitCode.ERROR,
+            extra={
+                "match": False,
+                "restored": restored,
+                "digest_a": digest_a,
+                "digest_b": digest_b,
+                "steps": steps_a,
+                "steps_replay": steps_b,
+            },
+        )
 
     emit_success(
         as_json=as_json,
-        message="Replay digests match" if match else "Replay digests DIVERGED",
+        message="Replay digests match",
         extra={
-            "match": match,
+            "match": True,
             "restored": restored,
             "digest_a": digest_a,
             "digest_b": digest_b,

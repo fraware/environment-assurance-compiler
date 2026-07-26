@@ -8,6 +8,8 @@ from envassure import __version__
 from envassure.cli.commands import (
     analysis_cmds,
     benchmark_cmd,
+    benchmark_pack_cmds,
+    connector_cmds,
     diffval_cmds,
     doctor,
     import_cmds,
@@ -15,6 +17,8 @@ from envassure.cli.commands import (
     inspect_cmd,
     ir_cmds,
     migrate_cmd,
+    obligation_cmds,
+    openenv_cmds,
     pack_cmds,
     plugin_cmds,
     refine_cmd,
@@ -80,7 +84,8 @@ app.command("analyze")(analysis_cmds.analyze_command)
 app.command("coverage")(analysis_cmds.coverage_command)
 
 # Phase 5
-app.command("differential")(diffval_cmds.differential_command)
+app.add_typer(diffval_cmds.differential_app, name="differential")
+app.add_typer(connector_cmds.connector_app, name="connector")
 
 # Phase 5/6 refinement + reports + plugins + benchmark
 app.command("refine")(refine_cmd.refine_command)
@@ -88,7 +93,15 @@ app.command("package")(pack_cmds.package_command)
 app.command("verify-pack")(pack_cmds.verify_pack_command)
 app.command("report")(pack_cmds.report_command)
 app.command("benchmark")(benchmark_cmd.benchmark_command)
+app.add_typer(benchmark_pack_cmds.pack_app, name="pack")
 app.add_typer(plugin_cmds.plugins_app, name="plugins")
+app.add_typer(obligation_cmds.obligations_app, name="obligations")
+
+# OpenEnv surfaces: eac export|serve openenv; eac openenv test
+# (top-level `eac test` remains the runtime determinism property)
+app.add_typer(openenv_cmds.export_app, name="export")
+app.add_typer(openenv_cmds.serve_app, name="serve")
+app.add_typer(openenv_cmds.openenv_app, name="openenv")
 
 # All required CLI commands are registered with real implementations (fail-closed
 # on unsupported inputs; never silent success for unimplemented work).
