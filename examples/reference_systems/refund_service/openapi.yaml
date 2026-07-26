@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: Refund Reference Service
+  version: 0.2.0b1
+paths:
+  /healthz:
+    get:
+      summary: Liveness
+      responses:
+        "200":
+          description: ok
+  /v1/reset:
+    post:
+      summary: Evaluator reset
+      responses:
+        "200":
+          description: reset
+  /v1/probe:
+    post:
+      summary: Black-box probe execute
+      responses:
+        "200":
+          description: ProbeOutcome
+  /v1/admin/state:
+    get:
+      summary: Privileged state (evaluator only)
+      responses:
+        "200":
+          description: authoritative snapshot

@@ -1,0 +1,7 @@
+{
+  "timeouts": ["submit_refund"],
+  "partial_failures": ["approve_refund"],
+  "retry_safe": ["submit_refund"],
+  "retry_unsafe": ["approve_refund"],
+  "planted_mismatch": "get_balance observation vs privileged state when PLANT_MISMATCH=1"
+}
