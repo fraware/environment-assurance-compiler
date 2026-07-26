@@ -32,6 +32,7 @@ __all__ = [
     "ComparisonTolerances",
     "DimensionVerdict",
     "FileBackedSimulatorConnector",
+    "HttpReferenceConnector",
     "InMemoryReferenceConnector",
     "LocalHttpStubConnector",
     "MinimizationResult",
@@ -55,4 +56,8 @@ def __getattr__(name: str) -> object:
         from envassure.postgres import PostgresReferenceConnector
 
         return PostgresReferenceConnector
+    if name == "HttpReferenceConnector":
+        from envassure.differential.http_connector import HttpReferenceConnector
+
+        return HttpReferenceConnector
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
