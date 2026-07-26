@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://envassure.dev/schemas/example-manifest-1.json",
+  "title": "EnvAssureExampleManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "slug",
+    "title",
+    "description",
+    "status",
+    "requires",
+    "entrypoints",
+    "paths"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^E[0-9]+$"
+    },
+    "slug": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "scaffold",
+        "contract-complete",
+        "integration-blocked",
+        "release-qualified"
+      ]
+    },
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python", "envassure", "extras"],
+      "properties": {
+        "python": { "type": "string" },
+        "envassure": { "type": "string" },
+        "extras": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "entrypoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run", "verify"],
+      "properties": {
+        "run": { "type": "string" },
+        "verify": { "type": "string" }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input", "expected"],
+      "properties": {
+        "input": { "type": "string" },
+        "expected": { "type": "string" }
+      }
+    },
+    "depends_on_integrations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
