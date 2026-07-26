@@ -16,7 +16,9 @@ from envassure.reconciliation import ReconciliationResult, ambiguity_id, reconci
 from envassure.sources import import_source
 from envassure.workspace.config import SourcePrecedenceSection
 
-_SOURCES = Path(__file__).resolve().parent / "sources"
+# Public example contract uses input/; sources/ retained as a compatibility alias.
+_ROOT = Path(__file__).resolve().parent
+_SOURCES = _ROOT / "input" if (_ROOT / "input").is_dir() else _ROOT / "sources"
 
 # Stable hashed id for classic submit_refund retry_behavior conflict.
 CLASSIC_REFUND_RETRY_AMBIGUITY_ID = ambiguity_id(
@@ -100,9 +102,9 @@ def build_refund_world() -> WorldDefinition:
         "idempotency_key_unspecified",
     ]
     world.definition.semantic_sources = [
-        "sources/api.yaml",
-        "sources/refund-sop.md",
-        "sources/trace-0187.jsonl",
+        "input/api.yaml",
+        "input/refund-sop.md",
+        "input/trace-0187.jsonl",
     ]
     world.definition.ambiguities = [
         demo_amb,
@@ -114,7 +116,7 @@ def build_refund_world() -> WorldDefinition:
         type="enum",
         enum_values=["none", "pending", "committed", "failed"],
         initial_generator="none",
-        provenance=provenance(source_ids=["sources/api.yaml"]),
+        provenance=provenance(source_ids=["input/api.yaml"]),
     )
     world.actor(
         "agent",
@@ -132,7 +134,7 @@ def build_refund_world() -> WorldDefinition:
         "submit_refund",
         actor_classes=["support_agent"],
         writes=["refund_status"],
-        intended_effects=["refund_status = committed"],
+        intended_effects=['refund_status = "committed"'],
         success_outcomes=["accepted"],
         failure_ids=[],
         timeout_behavior="http_504_no_state_semantics",
@@ -145,9 +147,9 @@ def build_refund_world() -> WorldDefinition:
         ],
         provenance=provenance(
             source_ids=[
-                "sources/api.yaml",
-                "sources/refund-sop.md",
-                "sources/trace-0187.jsonl",
+                "input/api.yaml",
+                "input/refund-sop.md",
+                "input/trace-0187.jsonl",
             ],
         ),
     )

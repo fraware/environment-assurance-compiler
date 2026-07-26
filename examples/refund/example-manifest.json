@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "E1",
+  "slug": "refund",
+  "title": "Support refund workflow",
+  "description": "OpenAPI + SOP + trace conflict on submit_refund timeout/retry/idempotency.",
+  "status": "contract-complete",
+  "requires": {
+    "python": ">=3.11",
+    "envassure": "*",
+    "extras": []
+  },
+  "entrypoints": {
+    "run": "run.sh",
+    "verify": "verify.sh"
+  },
+  "paths": {
+    "input": "input",
+    "expected": "expected"
+  },
+  "depends_on_integrations": [],
+  "notes": [
+    "run.sh and verify.sh must use eac from an installed wheel.",
+    "Open conflict is intentional; decide before release-grade packs."
+  ]
+}

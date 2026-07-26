@@ -1,0 +1,3 @@
+{"ts": "2026-03-01T10:00:01Z", "action": "submit_refund", "request_id": "r-0187-a", "outcome": "timeout", "timeout": true, "http_status": 504}
+{"ts": "2026-03-01T10:00:45Z", "action": "submit_refund", "request_id": "r-0187-a", "outcome": "observed_later", "state_effect": "committed", "authoritative_state": "refund_committed", "note": "Original timed-out attempt had already committed the refund"}
+{"ts": "2026-03-01T10:01:20Z", "action": "submit_refund", "request_id": "r-0187-b", "outcome": "ok", "state_effect": "committed", "note": "Agent followed SOP retry; second refund also applied (double refund)"}
