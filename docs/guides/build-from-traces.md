@@ -1,7 +1,7 @@
 # Build an environment from traces
 
 Operational traces are first-class sources with authority class
-`operational_trace`. This guide uses `examples/refund/sources/trace-0187.jsonl`,
+`operational_trace`. This guide uses `examples/refund/input/trace-0187.jsonl`,
 which shows a timed-out `submit_refund` that had already committed — contradicting
 naive “always retry on 504” procedures.
 
@@ -17,9 +17,9 @@ Inspect the JSONL fixture (one event per line):
 
 ```bash
 # Unix
-cat examples/refund/sources/trace-0187.jsonl
+cat examples/refund/input/trace-0187.jsonl
 # Windows PowerShell
-Get-Content examples/refund/sources/trace-0187.jsonl
+Get-Content examples/refund/input/trace-0187.jsonl
 ```
 
 Each line is a JSON event. The second event records `state_effect: committed`
@@ -29,7 +29,7 @@ after an earlier timeout; the third records a second commit (double refund).
 
 ```bash
 eac init trace-ws --name trace-ws
-eac import traces examples/refund/sources/trace-0187.jsonl \
+eac import traces examples/refund/input/trace-0187.jsonl \
   --path trace-ws \
   --output trace-ws/facts/trace_facts.json \
   --json
@@ -41,7 +41,7 @@ timeouts, and state effects. Parse failures emit `EAC1004` and exit non-zero.
 ## 3. Reconcile against the OpenAPI contract
 
 ```bash
-eac import openapi examples/refund/sources/api.yaml \
+eac import openapi examples/refund/input/api.yaml \
   --path trace-ws -o trace-ws/facts/api_facts.json
 
 python - <<'PY'

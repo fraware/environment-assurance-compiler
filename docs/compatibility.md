@@ -7,7 +7,7 @@ EnvAssure versions several contracts independently:
 | Compiler package      | `envassure` PyPI ver.   | SemVer                                                  |
 | IR schema             | `ir_version`            | Read last two stable minors; write current              |
 | Plugin API            | `plugin_api_version`    | Breaking changes require major bump                     |
-| Environment Pack      | pack format version     | Older packs verify if within supported window           |
+| Environment Pack      | pack `format_version`   | Write current; verify only supported read window |
 | Codegen templates     | template digests        | Locked in `.eac/lock.json`                              |
 
 ## IR read/write window
@@ -23,6 +23,24 @@ EnvAssure versions several contracts independently:
 - **Additive:** `assurance_profile` (default `"baseline"`).
 - **Normalized default:** `state_model_version` `"1"` → `"1.0"`.
 - **Optional rename:** deprecated top-level `profile` → `assurance_profile` (then removed).
+- **Additive:** `ProvenanceRef.origin_kind` classifier for compiled IR provenance.
+
+## Pack format read/write window
+
+| Role | Version |
+| ---- | ------- |
+| Write current | `2` |
+| Prior stable schema (frozen docs) | `1` (`pack-manifest-1.json`) |
+| Supported pack read set | `2` |
+
+Pack format **v2** requires `schemas/`, `sources/manifest.json`,
+`provenance/bundle.json`, `migration/history.json`, `compatibility.json`,
+`fidelity/ledger.json`, plus manifest fields `runtime_version` /
+`policy_version`. Optional `signatures/` members must appear in
+`manifest.files` when present, and `manifest.metadata.signatures` must list
+matching per-member digests bound to a `signed_content_digest` over
+non-signature members (integrity listing; not cryptographic verification).
+Unsupported `format_version` values fail closed (`EAC8006`).
 
 ## Migration
 

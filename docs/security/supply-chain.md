@@ -13,15 +13,17 @@ build-provenance attestations for EnvAssure distributions
 | Multi-OS `eac` smoke | `CI` → `smoke` | **Blocking** |
 | Optional extras import (`gym`, `pettingzoo`, `postgres`, `model-assisted`) | `CI` → `extras-import` | **Blocking** |
 | Offline `eac benchmark` regression | `CI` → `benchmark` | **Blocking** |
-| sdist / wheel clean install | `CI` → `package` | **Blocking** |
-| MkDocs strict | `CI` → `docs` | **Blocking** |
+| sdist / wheel + package acceptance (§4.4) | `CI` → `package` | **Blocking** |
+| MkDocs strict | `CI` → `docs` / `Docs` | **Blocking** |
 | Counter E2E + pack secret scan | `CI` → `counter-e2e` | **Blocking** |
 | Schema / fixture JSON | `CI` → `schemas` | **Blocking** |
-| Gitleaks | `CI` → `secret-scan` | **Blocking** |
-| `pip-audit` on installed runtime deps | `CI` → `dependency-audit` | **Blocking** |
-| CodeQL (same-repo only) | `CI` → `codeql` | **Blocking** |
+| Gitleaks | `Security` → `secret-scan` | **Blocking** |
+| `pip-audit` on installed runtime deps | `Security` → `dependency-audit` | **Blocking** |
+| CodeQL (same-repo only) | `Security` → `codeql` | **Blocking** |
+| Trivy fs / image CRITICAL | `Security` → `image-scan` / `Release` → `ghcr` | **Blocking** |
 | CycloneDX SBOM preview artifact | `CI` → `sbom-preview` | **Advisory** (`continue-on-error`) |
-| Signed build provenance + release SBOM | `Release` → `build-sbom-attest` | **Blocking** on release / dispatch |
+| Signed tag → build → TestPyPI/PyPI/GHCR | `Release` | **Blocking** on `v*` / dispatch |
+| Dry-run build + acceptance | `Test release` | **Blocking** on PR/main |
 
 Coverage floors (measured 2026-07-25, branch coverage):
 
@@ -47,8 +49,25 @@ venv that installs the built wheel:
 - `dist/envassure.cdx.json`
 - `dist/envassure.cdx.xml`
 
-On a published GitHub Release these files are attached as release assets (also
-uploaded as the `envassure-dist-sbom` workflow artifact).
+On a published GitHub Release these files are attached as release assets
+together with `SHA-256SUMS` and `release-manifest.json` (also uploaded as the
+`envassure-release-dist` workflow artifact).
+
+### Release manifest
+
+`schemas/release-manifest-1.json` defines the compiler release coordinate
+document. Generate with:
+
+```bash
+python scripts/generate_release_manifest.py \
+  --dist-dir dist \
+  --tag v0.2.0b1 \
+  --commit "$(git rev-parse HEAD)" \
+  --out dist/release-manifest.json
+```
+
+Maintainer Environments, PyPI name claim, and tag rulesets:
+[release process](../contributing/release-process.md).
 
 ### Verify an SBOM locally
 
@@ -87,13 +106,14 @@ Attestations in the GitHub repository UI for the release commit.
 
 ### Triggering a release build
 
-- Automatic: publish a GitHub Release (tag).
-- Manual: Actions → **Release** → **Run workflow** (optionally upload assets to
-  the latest release).
+- Automatic: push a signed annotated `v*` tag (see release-process).
+- Manual: Actions → **Release** → **Run workflow** (dry-run by default;
+  optional TestPyPI / PyPI / GHCR publish flags).
 
 ## Related
 
 - [Threat model](threat-model.md)
+- [Release process](../contributing/release-process.md)
 - [Package and publish](../guides/package-and-publish.md)
 - [Release readiness 0.2](../research/release-readiness-0.2.md)
 - [SECURITY.md](https://github.com/fraware/environment-assurance-compiler/blob/main/SECURITY.md)

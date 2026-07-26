@@ -8,7 +8,9 @@ Checked-in JSON Schema artifacts live under repository
 | `world-0.2.0.json` | Write-current `WorldDefinition` schema |
 | `world-0.1.0.json` | Frozen prior-stable schema (read window) |
 | `world.json` | Alias of the write-current world schema |
-| `pack-manifest.json` / `pack-manifest-1.json` | Environment pack manifest |
+| `pack-manifest.json` / `pack-manifest-1.json` / `pack-manifest-2.json` | Environment pack manifest |
+| `plugin-registry-v1.schema.json` | Curated plugin registry (`registry/plugins-v1.json`; never auto-install) |
+| `environment-defect-v1.schema.json` | Environment-defect registry records |
 
 Export / refresh the current schema from Python:
 

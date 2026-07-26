@@ -5,6 +5,21 @@ Every shipped diagnostic code is registered in
 from day one. This page mirrors the catalog; the Python module is the source of
 truth if they ever diverge.
 
+## Code freeze policy
+
+Diagnostic codes are **semantically frozen** once shipped:
+
+1. Every emitted code must appear in `DIAGNOSTIC_CATALOG` (enforced by
+   `require_documented` and the catalog coverage unit test).
+2. Reusing an existing code for different severity, summary meaning,
+   documentation, consequence, suggested repair, or `claim_impact` is forbidden
+   without an intentional catalog revision that updates the golden semantic
+   fingerprint (`tests/fixtures/diagnostics/catalog_semantic_fingerprint.txt`).
+3. Prefer minting a new code over silently changing the meaning of an old one.
+4. `summary` explains the issue; `claim_impact` (when present) states which
+   fidelity/assurance claim is weakened; `suggested_repair` remains the
+   remediation hint; `source_refs` / `SourceRef` remain the location carrier.
+
 ## Families
 
 | Family | Concern |
@@ -28,7 +43,8 @@ truth if they ever diverge.
 | `note` | Explains derived or skipped behavior |
 | `help` | Suggests a command or edit |
 
-Use `eac <cmd> --json` for structured diagnostic objects.
+Use `eac <cmd> --json` for structured diagnostic objects. Structured objects may
+include optional `claim_impact`.
 
 ## Catalog
 
@@ -41,6 +57,7 @@ Use `eac <cmd> --json` for structured diagnostic objects.
 | EAC1003 | warning | Completeness declaration note |
 | EAC1004 | error | Failed to parse source artifact |
 | EAC1005 | error | Unknown source adapter kind |
+| EAC1006 | warning | Unsupported source feature outside adapter matrix |
 
 ### EAC2xxx — Semantic conflicts
 
@@ -61,6 +78,8 @@ Use `eac <cmd> --json` for structured diagnostic objects.
 | EAC3004 | error | Unsupported IR version |
 | EAC3005 | note | IR migrate status (including no-op) |
 | EAC3006 | error | IR migrate transform failure |
+| EAC3007 | error | Release readiness gate failure |
+| EAC3008 | error | Provenance origin_kind conflict |
 
 ### EAC4xxx — State and transition analysis
 
@@ -127,6 +146,7 @@ Use `eac <cmd> --json` for structured diagnostic objects.
 | EAC9004 | note | Network checks skipped |
 | EAC9005 | error | Internal error |
 | EAC9006 | error | Plugin error (load / API / allowlist) |
+| EAC9007 | error | Runtime replay/assurance failure |
 
 ## Related
 
