@@ -26,6 +26,8 @@ def format_diagnostic(diagnostic: Diagnostic) -> str:
             lines.append(f"    {artifact}")
     if diagnostic.consequence:
         lines.append(f"  consequence: {diagnostic.consequence}")
+    if diagnostic.claim_impact:
+        lines.append(f"  claim_impact: {diagnostic.claim_impact}")
     if diagnostic.suggested_repair:
         lines.append(f"  repair: {diagnostic.suggested_repair}")
     return "\n".join(lines)

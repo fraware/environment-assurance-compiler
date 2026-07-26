@@ -43,6 +43,7 @@ class Diagnostic(BaseModel):
     affected_artifacts: list[str] = Field(default_factory=list)
     consequence: str | None = None
     suggested_repair: str | None = None
+    claim_impact: str | None = None
     details: dict[str, Any] = Field(default_factory=dict)
 
     def is_blocking(self) -> bool:
