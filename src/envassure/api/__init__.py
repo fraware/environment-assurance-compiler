@@ -17,7 +17,13 @@ from envassure.ir.models import (
     VerifierClaim,
     WorldDefinition,
 )
-from envassure.ir.primitives import ConstraintExpr, FailureCategory, ProvenanceRef, StateTypeName
+from envassure.ir.primitives import (
+    ConstraintExpr,
+    FailureCategory,
+    OriginKind,
+    ProvenanceRef,
+    StateTypeName,
+)
 
 
 class World:
@@ -178,11 +184,13 @@ def provenance(
     source_ids: list[str] | None = None,
     decision_ids: list[str] | None = None,
     fact_ids: list[str] | None = None,
+    origin_kind: OriginKind | None = None,
     notes: str | None = None,
 ) -> ProvenanceRef:
     return ProvenanceRef(
         source_ids=source_ids or [],
         decision_ids=decision_ids or [],
         fact_ids=fact_ids or [],
+        origin_kind=origin_kind,
         notes=notes,
     )

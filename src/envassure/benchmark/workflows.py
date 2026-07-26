@@ -226,9 +226,7 @@ def run_concealed_suite(
         report.metadata = {
             **report.metadata,
             "dimension_metrics": _dimension_breakdown(oracle.episodes),
-            "negative_probe_count": sum(
-                1 for ep in oracle.episodes if ep.metadata.get("negative")
-            ),
+            "negative_probe_count": sum(1 for ep in oracle.episodes if ep.metadata.get("negative")),
             "curated_count": sum(
                 1 for ep in oracle.episodes if ep.metadata.get("probe_kind") == "curated"
             ),
@@ -315,24 +313,26 @@ def _episodes_transactional(
         authorized = (n % 7) != 0
         success = authorized and (n % 5) != 0
         failure = None if success else ("forbidden" if not authorized else "timeout")
-        oracle = {
+        oracle: dict[str, Any] = {
             "success": success,
             "authorized": authorized,
             "failure": failure,
             "state": {"ledger": n % 11, "idempotency_key": f"k-{n % 50}"},
             "retry": "exponential" if failure == "timeout" else "none",
         }
-        candidate = dict(oracle)
+        candidate: dict[str, Any] = dict(oracle)
         negative = False
         leaked: list[str] = []
         if include_negative and (n % 17 == 0):
             # Intentional candidate mismatch / leak — published negative result.
             negative = True
+            state = dict(oracle["state"])
+            state["internal_risk_score"] = 0.9
             candidate = {
                 **oracle,
                 "success": True,
                 "failure": None,
-                "state": {**oracle["state"], "internal_risk_score": 0.9},
+                "state": state,
             }
             leaked = ["internal_risk_score"]
         elif include_negative and (n % 19 == 0):
@@ -382,32 +382,30 @@ def _episodes_authorization(
         missing_projection = role == "auditor" and action == "observe" and (n % 23 == 0)
         if missing_projection:
             oracle_obs = {}
-        oracle = {
+        oracle: dict[str, Any] = {
             "success": success,
             "authorized": authorized,
             "failure": failure,
             "authorization": authorized,
             "observation": oracle_obs,
         }
-        candidate = dict(oracle)
+        candidate: dict[str, Any] = dict(oracle)
         candidate["observation"] = dict(oracle_obs)
         leaked: list[str] = []
         negative = False
         if missing_projection and include_negative and (n % 2 == 0):
             # Fail-open regression: candidate leaks full authoritative state.
             negative = True
-            candidate = {
-                **oracle,
-                "observation": {
-                    "request_status": oracle_obs.get("request_status", "pending")
-                    if oracle_obs
-                    else "pending",
-                    "requester_id": f"u-{n % 20}",
-                    "approver_id": f"hidden-{n}",
-                },
+            leak_obs: dict[str, Any] = {
+                "request_status": oracle_obs.get("request_status", "pending")
+                if oracle_obs
+                else "pending",
+                "requester_id": f"u-{n % 20}",
+                "approver_id": f"hidden-{n}",
             }
+            candidate = {**oracle, "observation": leak_obs}
             leaked = probe_observation_leaks(
-                candidate["observation"],
+                leak_obs,
                 missing_or_unknown_projection=True,
             )
         elif include_negative and (n % 13 == 0):
@@ -462,7 +460,7 @@ def _episodes_stochastic(
         success = not stockout
         failure = "stockout" if stockout else None
         on_hand = max(0, 10 - (n % 9) - (1 if stockout else 0))
-        oracle = {
+        oracle: dict[str, Any] = {
             "success": success,
             "authorized": bool(action != "replenish" or (n % 3)),
             "failure": failure if success or stockout else "forbidden",
@@ -473,7 +471,7 @@ def _episodes_stochastic(
         if action == "replenish" and not oracle["authorized"]:
             oracle["success"] = False
             oracle["failure"] = "forbidden"
-        candidate = {
+        candidate: dict[str, Any] = {
             "success": oracle["success"],
             "authorized": oracle["authorized"],
             "failure": oracle["failure"],
@@ -483,23 +481,25 @@ def _episodes_stochastic(
         }
         leaked: list[str] = []
         negative = False
-        if include_negative and oracle["sample_size"] < 30 and (n % 9 == 0):
+        sample_size = int(oracle["sample_size"])
+        if include_negative and sample_size < 30 and (n % 9 == 0):
             # Underpowered stochastic evidence must not count as match.
             negative = True
+            state = dict(candidate["state"])
+            state["true_fill_rate"] = 1.0
             candidate = {
                 **candidate,
                 "success": True,
                 "failure": None,
                 "metadata_note": "underpowered_treated_as_match_bug",
+                "state": state,
             }
-            candidate["state"] = {**candidate["state"], "true_fill_rate": 1.0}
             leaked = ["true_fill_rate"]
         elif include_negative and (n % 15 == 0):
             negative = True
-            candidate = {
-                **candidate,
-                "observation": {**candidate["observation"], "true_fill_rate": 0.99},
-            }
+            observation = dict(candidate["observation"])
+            observation["true_fill_rate"] = 0.99
+            candidate = {**candidate, "observation": observation}
             leaked = ["true_fill_rate"]
         episodes.append(
             OracleEpisode(
@@ -507,13 +507,13 @@ def _episodes_stochastic(
                 action_id=action,
                 oracle=oracle,
                 candidate=candidate,
-                solvable=oracle["success"],
+                solvable=bool(oracle["success"]),
                 leaked_paths=leaked,
                 metadata={
                     "probe_kind": kind,
                     "negative": negative,
                     "workflow": "stochastic_operational",
-                    "underpowered": oracle["sample_size"] < 30,
+                    "underpowered": sample_size < 30,
                     "verify_false_positive": negative and bool(leaked),
                 },
             )
@@ -544,9 +544,6 @@ def preregistered_stats_note() -> dict[str, Any]:
             "Hidden-reference digests pin oracles; do not tune to fixture answers.",
         ],
         "suite_digest_seed0": canonical_hash(
-            {
-                wid: oracle_digest_for(wid, seed=0)
-                for wid in WORKFLOW_IDS
-            }
+            {wid: oracle_digest_for(wid, seed=0) for wid in WORKFLOW_IDS}
         ),
     }

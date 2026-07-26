@@ -192,6 +192,7 @@ def test_compare_dimensions_and_fixture_diff() -> None:
     assert ComparisonDimension.SUCCESS in result.failing_dimensions
     assert result.overall_status.value == "mismatch"
 
+
 def test_minimize_preserves_reduction_steps() -> None:
     sequence = ["a", "b", "c", "d", "e", "f"]
 

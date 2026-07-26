@@ -163,7 +163,8 @@ def test_proof_obligation_generators_and_pack(tmp_path: Path) -> None:
     inv_bundle = compile_proof_obligations(inv)
     assert any(o.claim_kind == "resource_conservation" for o in inv_bundle.obligations)
     assert any(
-        o.claim_kind == "deterministic_reset_replay" and o.mechanism_strength == "differential_evidence"
+        o.claim_kind == "deterministic_reset_replay"
+        and o.mechanism_strength == "differential_evidence"
         for o in inv_bundle.obligations
     )
 

@@ -103,6 +103,7 @@ def test_refund_ambiguity_amb_0042() -> None:
     )
     assert any(a.id == amb.id for a in result.unresolved_ambiguities)
 
+
 def test_apply_decision(tmp_path: Path) -> None:
     mod = _refund_mod()
     result = mod.reconcile_refund()

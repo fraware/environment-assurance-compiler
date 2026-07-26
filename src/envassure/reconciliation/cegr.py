@@ -103,11 +103,7 @@ class CounterexampleIntake(BaseModel):
         return canonical_hash(self.model_dump(mode="json"))
 
     def non_pass_dimensions(self) -> list[str]:
-        dims = [
-            d.dimension
-            for d in self.dimension_details
-            if d.is_non_pass() and d.dimension
-        ]
+        dims = [d.dimension for d in self.dimension_details if d.is_non_pass() and d.dimension]
         if dims:
             return list(dict.fromkeys(dims))
         return list(self.failing_dimensions)
@@ -338,9 +334,7 @@ def apply_cegr(
             )
         )
 
-    amb = _ambiguity_from_intake(
-        ce, subject=subject, action_id=action_id, alias_map=alias_map
-    )
+    amb = _ambiguity_from_intake(ce, subject=subject, action_id=action_id, alias_map=alias_map)
     ambiguities.append(amb)
 
     for dim in failing:
@@ -563,9 +557,7 @@ def run_cegr_loop(
                 reason=evidence or "CEGR remains open; expert decision required",
                 subject=ce.probe_id,
                 details={
-                    "accepted_fact_ids": [
-                        f.fact_id for f in result.reconciliation.accepted_facts
-                    ],
+                    "accepted_fact_ids": [f.fact_id for f in result.reconciliation.accepted_facts],
                     "unresolved": len(result.reconciliation.unresolved_ambiguities),
                 },
             )
@@ -590,9 +582,7 @@ def run_cegr_loop(
 
     generation_dir: str | None = None
     if persist and workspace_root is not None:
-        generation_dir = str(
-            persist_refinement_generation(workspace_root, generation, intake=ce)
-        )
+        generation_dir = str(persist_refinement_generation(workspace_root, generation, intake=ce))
 
     final = CegrResult(
         intake=ce,

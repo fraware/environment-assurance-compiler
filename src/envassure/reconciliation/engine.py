@@ -15,11 +15,32 @@ from envassure.diagnostics.factory import make_diagnostic
 from envassure.diagnostics.models import DiagnosticReport
 from envassure.facts.models import SemanticFact
 from envassure.ir.models import AmbiguityRecord
-from envassure.ir.primitives import ProvenanceRef
+from envassure.ir.primitives import ProvenanceRef, origin_kind_for_derivation
 from envassure.workspace.config import SourcePrecedenceSection
 
 _OPERATIONAL_PREDICATES = frozenset({"timeout_behavior", "retry_behavior", "idempotency"})
 _DEFAULT_PRECEDENCE = SourcePrecedenceSection().order
+
+
+def _provenance_for_facts(
+    facts: Sequence[SemanticFact],
+    *,
+    origin_kind: str,
+) -> ProvenanceRef:
+    """Build provenance for reconciled facts with an explicit origin classifier."""
+    derivations = {f.confidence.derivation_class for f in facts}
+    # Never claim source_derived when any contributing fact is inferred.
+    kind = origin_kind
+    if kind == "source_derived" and "inferred" in derivations:
+        kind = "inferred"
+    elif kind == "source_derived" and len(derivations) == 1:
+        only = next(iter(derivations))
+        kind = origin_kind_for_derivation(only)
+    return ProvenanceRef(
+        fact_ids=[f.fact_id for f in facts],
+        source_ids=_unique_sources(facts),
+        origin_kind=kind,  # type: ignore[arg-type]
+    )
 
 
 class ReconciliationResult(BaseModel):
@@ -99,13 +120,14 @@ def reconcile(
                 operational_consequence="Duplicate or missing IR bindings possible.",
                 required_expert_role="domain_expert",
                 status="open",
-                provenance=ProvenanceRef(
-                    fact_ids=[
-                        f.fact_id
+                provenance=_provenance_for_facts(
+                    [
+                        f
                         for f in fact_list
                         if f.subject.id in {g.split(":", 1)[-1] for g in group}
                         or f"{f.subject.kind}:{f.subject.id}" in group
-                    ]
+                    ],
+                    origin_kind="unresolved_conflict",
                 ),
             )
         )
@@ -147,10 +169,7 @@ def reconcile(
                 ),
                 required_expert_role="domain_expert",
                 status="open",
-                provenance=ProvenanceRef(
-                    fact_ids=[f.fact_id for f in ranked],
-                    source_ids=_unique_sources(ranked),
-                ),
+                provenance=_provenance_for_facts(ranked, origin_kind="unresolved_conflict"),
             )
             result.ambiguities.append(amb)
             # Ranked head is a review hint only — not accepted into IR.
@@ -228,9 +247,9 @@ def reconcile(
                         operational_consequence=("Timeout/retry tasks and verifiers are unsafe."),
                         required_expert_role="reliability_engineer",
                         status="open",
-                        provenance=ProvenanceRef(
-                            fact_ids=[preds["timeout_behavior"].fact_id],
-                            source_ids=_unique_sources([preds["timeout_behavior"]]),
+                        provenance=_provenance_for_facts(
+                            [preds["timeout_behavior"]],
+                            origin_kind="unresolved_conflict",
                         ),
                     )
                 )
@@ -265,10 +284,9 @@ def reconcile(
                         operational_consequence=("Retries may double-apply state changes."),
                         required_expert_role="reliability_engineer",
                         status="open",
-                        provenance=ProvenanceRef(
-                            fact_ids=[
-                                f.fact_id for p, f in preds.items() if p in _OPERATIONAL_PREDICATES
-                            ],
+                        provenance=_provenance_for_facts(
+                            [f for p, f in preds.items() if p in _OPERATIONAL_PREDICATES],
+                            origin_kind="unresolved_conflict",
                         ),
                     )
                 )
