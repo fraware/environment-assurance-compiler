@@ -1,0 +1,417 @@
+{
+  "ir_version": "0.2.0",
+  "environment_id": "counter.v1",
+  "name": "Deterministic Counter",
+  "version": "0.1.0",
+  "description": "Minimal fully-deterministic counter service.",
+  "domain": "reference",
+  "assurance_profile": "baseline",
+  "task_families": [
+    "increment"
+  ],
+  "semantic_sources": [],
+  "state_model_version": "1.0",
+  "clock_model": "discrete_steps",
+  "stochasticity_model": "none",
+  "reset_semantics": "full_reset",
+  "termination_semantics": "goal_or_horizon",
+  "truncation_semantics": "horizon",
+  "concurrency_model": "single_actor",
+  "transaction_model": "none",
+  "external_dependencies": [],
+  "confidentiality_boundaries": [],
+  "declared_fidelity_level": "EF-1",
+  "known_unsupported_behavior": [],
+  "permissible_uses": [],
+  "determinism": "fully_deterministic",
+  "state": [
+    {
+      "id": "count",
+      "name": "count",
+      "type": "resource_counter",
+      "constraints": [],
+      "owning_aggregate": null,
+      "initial_generator": "0",
+      "persistence": "session",
+      "reset_class": "reset_on_episode",
+      "mutation_authority": [],
+      "mutability": "mutable",
+      "confidentiality": "internal",
+      "policy_visible": true,
+      "evaluator_visible": false,
+      "provenance": {
+        "source_ids": [
+          "manual"
+        ],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "uncertainty": null,
+      "derived_expression": null,
+      "enum_values": null,
+      "record_fields": null
+    }
+  ],
+  "actors": [
+    {
+      "id": "client",
+      "actor_class": "client",
+      "identity_model": "named",
+      "roles": [],
+      "capabilities": [],
+      "credentials": [],
+      "authority_source": null,
+      "delegation_rules": [],
+      "revocation_rules": [],
+      "observation_projection_id": "client_view",
+      "available_actions": [
+        "increment",
+        "reset",
+        "get"
+      ],
+      "lifecycle": "episode",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    },
+    {
+      "id": "admin",
+      "actor_class": "admin",
+      "identity_model": "named",
+      "roles": [
+        "admin"
+      ],
+      "capabilities": [],
+      "credentials": [],
+      "authority_source": "role:admin",
+      "delegation_rules": [],
+      "revocation_rules": [],
+      "observation_projection_id": "client_view",
+      "available_actions": [
+        "reset",
+        "get",
+        "increment"
+      ],
+      "lifecycle": "episode",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "observations": [
+    {
+      "id": "client_view",
+      "target_actor_class": "client",
+      "visible_paths": [
+        "count"
+      ],
+      "omitted_paths": [],
+      "transformations": [],
+      "aggregation": null,
+      "delay": null,
+      "noise": null,
+      "staleness": null,
+      "access_control": null,
+      "information_flow_labels": [],
+      "error_policy": null,
+      "side_channel_policy": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": "increment",
+      "version": "1",
+      "actor_classes": [
+        "client",
+        "admin"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [],
+      "writes": [
+        "count"
+      ],
+      "intended_effects": [
+        "count += 1"
+      ],
+      "external_side_effects": [],
+      "resource_effects": [
+        "count += 1"
+      ],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": "none",
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [
+          "manual"
+        ],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "reset",
+      "version": "1",
+      "actor_classes": [
+        "client",
+        "admin"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": "role:admin",
+      "reads": [],
+      "writes": [
+        "count"
+      ],
+      "intended_effects": [
+        "count = 0"
+      ],
+      "external_side_effects": [],
+      "resource_effects": [
+        "count = 0"
+      ],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "get",
+      "version": "1",
+      "actor_classes": [
+        "client",
+        "admin"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [
+        "count"
+      ],
+      "writes": [],
+      "intended_effects": [],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    }
+  ],
+  "failures": [],
+  "transitions": [
+    {
+      "id": "t_increment",
+      "action_id": "increment",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_increment.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "count.incremented"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_reset",
+      "action_id": "reset",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_reset.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "count.reset"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_get",
+      "action_id": "get",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_get.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "count.read"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "reach_three",
+      "family": "increment",
+      "initial_constraints": [
+        {
+          "expression": "count == 0",
+          "structured": null
+        }
+      ],
+      "actor_assignment": {},
+      "intent": "Reach count == 3 via increments",
+      "goal_claims": [
+        "count == 3"
+      ],
+      "prohibited_behavior": [],
+      "process_requirements": [],
+      "horizon": 10,
+      "resource_budget": {},
+      "permitted_tools": [],
+      "verifier_claim_ids": [
+        "v_non_negative"
+      ],
+      "solvability_method": null,
+      "difficulty_factors": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "verifiers": [
+    {
+      "id": "v_non_negative",
+      "statement": "count is always >= 0",
+      "required_evidence": [],
+      "mechanism": "predicate",
+      "decision_rule": "state.count >= 0",
+      "abstention_conditions": [],
+      "assumptions": [],
+      "applicability": null,
+      "false_positive_risks": [],
+      "status": "tested",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "evidence_obligations": [],
+  "ambiguities": [],
+  "provenance": {
+    "source_ids": [],
+    "decision_ids": [],
+    "fact_ids": [],
+    "origin_kind": null,
+    "notes": null
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "E2",
+  "slug": "openenv_refund",
+  "title": "OpenEnv refund export",
+  "description": "OpenEnv scaffold (openenv==0.4.1) with deterministic reset/step smoke; no full HTTP claim.",
+  "status": "contract-complete",
+  "requires": {
+    "python": ">=3.11",
+    "envassure": "*",
+    "extras": ["openenv"]
+  },
+  "entrypoints": {
+    "run": "run.sh",
+    "verify": "verify.sh"
+  },
+  "paths": {
+    "input": "input",
+    "expected": "expected"
+  },
+  "depends_on_integrations": ["openenv"],
+  "notes": [
+    "run.sh/verify.sh use eac from an installed wheel with envassure[openenv].",
+    "Full OpenEnv HTTP serve remains experimental; adapter unit path only."
+  ]
+}
