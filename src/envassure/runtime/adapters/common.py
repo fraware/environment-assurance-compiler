@@ -558,7 +558,9 @@ def _json_schema_to_space(gym: Any, schema: dict[str, Any], *, path: str) -> Any
         if not isinstance(props, dict) or not props:
             return gym.spaces.Dict({})
         spaces = {
-            key: _json_schema_to_space(gym, sub if isinstance(sub, dict) else {}, path=f"{path}.{key}")
+            key: _json_schema_to_space(
+                gym, sub if isinstance(sub, dict) else {}, path=f"{path}.{key}"
+            )
             for key, sub in props.items()
         }
         return gym.spaces.Dict(spaces)

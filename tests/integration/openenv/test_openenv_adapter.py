@@ -42,9 +42,7 @@ def test_openenv_service_reset_step_fork() -> None:
     a = svc.reset(seed=3, options={"episode_id": "a"})
     b = svc.reset(seed=3, options={"episode_id": "b"})
     assert a.observation == b.observation
-    stepped = svc.step(
-        EnvAssureOpenEnvAction(action_id="increment", actor_id="client", payload={})
-    )
+    stepped = svc.step(EnvAssureOpenEnvAction(action_id="increment", actor_id="client", payload={}))
     assert stepped.observation.get("count") == 1
     forked = svc.fork_episode()
     assert forked.state().authoritative_state == svc.state().authoritative_state

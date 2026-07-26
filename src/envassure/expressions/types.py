@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from envassure.expressions.ast import (
@@ -35,7 +35,7 @@ ALLOWLISTED_FUNCTIONS: dict[str, str] = {
 }
 
 
-class ExprType(str, Enum):
+class ExprType(StrEnum):
     ANY = "any"
     NULL = "null"
     BOOLEAN = "boolean"

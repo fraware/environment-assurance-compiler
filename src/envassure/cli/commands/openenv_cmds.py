@@ -16,9 +16,9 @@ from envassure.ir.io import load_world
 from envassure.runtime import EventSourcedEnvironment
 from envassure.runtime.adapters.common import AdapterSemanticsError
 from envassure.runtime.adapters.openenv_service import (
+    PINNED_OPENENV_VERSION,
     EnvAssureOpenEnvAction,
     OpenEnvAssureService,
-    PINNED_OPENENV_VERSION,
     check_openenv_pin,
 )
 
@@ -92,7 +92,7 @@ def serve_openenv(
     try:
         service, meta = _load_scaffold_service(directory)
         obs = service.reset(seed=seed, options={"episode_id": "serve-smoke"})
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         emit_report(
             DiagnosticReport(),
             as_json=as_json,
@@ -139,7 +139,7 @@ def test_openenv(
             ).model_dump(mode="json")
         forked = service.fork_episode()
         fork_obs = forked.reset(seed=7).model_dump(mode="json")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         emit_report(
             DiagnosticReport(),
             as_json=as_json,

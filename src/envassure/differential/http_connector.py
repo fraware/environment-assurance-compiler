@@ -9,7 +9,7 @@ import urllib.request
 from typing import Any
 from urllib.parse import urlparse
 
-from envassure.differential.connector import ProbeOutcome, _LOOPBACK_HOSTS, _coerce_outcome
+from envassure.differential.connector import _LOOPBACK_HOSTS, ProbeOutcome, _coerce_outcome
 
 
 class ReferenceSystemConnectorError(ValueError):
@@ -108,12 +108,12 @@ class HttpReferenceConnector:
         try:
             health = self._get_json("/healthz")
             checks["healthz"] = {"ok": True, "body": health}
-        except Exception as exc:  # noqa: BLE001 — doctor aggregates failures
+        except Exception as exc:
             checks["healthz"] = {"ok": False, "error": str(exc)}
         try:
             state = self.probe_state()
             checks["privileged_state"] = {"ok": True, "keys": sorted(state.keys())}
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             checks["privileged_state"] = {"ok": False, "error": str(exc)}
         checks["ok"] = bool(checks["healthz"].get("ok")) and bool(
             checks["privileged_state"].get("ok")

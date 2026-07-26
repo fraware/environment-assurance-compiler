@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from envassure.runtime.adapters.common import (
@@ -46,7 +47,7 @@ def _import_gymnasium() -> Any:
     return _gymnasium
 
 
-class GymAssureEnv(_GymEnvBase):  # type: ignore[misc,valid-type]
+class GymAssureEnv(_GymEnvBase):  # type: ignore[misc,valid-type,type-arg]
     """``gymnasium.Env`` subclass wrapping an AssuredEnvironment (EAC-09 / beta C1).
 
     Observation spaces are built from IR observation projections (fail closed on
@@ -76,9 +77,7 @@ class GymAssureEnv(_GymEnvBase):  # type: ignore[misc,valid-type]
         self._reward_provider = reward_provider
         self.render_mode = render_mode
 
-        self.action_space = action_space_for_actor(
-            gym, self._world, actor_id, self._action_ids
-        )
+        self.action_space = action_space_for_actor(gym, self._world, actor_id, self._action_ids)
         self.observation_space = observation_space_for_actor(gym, self._world, actor_id)
 
     def reset(
@@ -155,12 +154,10 @@ def register_gymnasium_envs() -> None:
     if _REGISTERED:
         return
     gym = _import_gymnasium()
-    try:
+    # Already registered in this process is a no-op.
+    with contextlib.suppress(Exception):
         gym.register(
             id="EnvAssure/Generic-v0",
             entry_point="envassure.runtime.adapters.gymnasium_env:GymAssureEnv",
         )
-    except Exception:
-        # Already registered in this process.
-        pass
     _REGISTERED = True

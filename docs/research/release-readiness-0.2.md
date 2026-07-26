@@ -232,7 +232,7 @@ pytest tests/ -q
 | ----------- | -------------- | --------- |
 | Gymnasium | Release-qualified adapter + E5 example | `integrations.yml` gym job |
 | OpenEnv | Adapter + export/test/serve-smoke; pin `0.4.1` | No full HTTP claim; OpenEnv image optional on release |
-| OPA | Bundle generate/report always | `opa fmt`/`test` need system binary (CI pin `1.4.2`) |
+| OPA | Bundle generate/report always | `opa fmt`/`test` need system binary (CI pin `1.18.2`) |
 | Differential | In-process HTTP refund + planted mismatch | Compose only when `ENVASURE_RUN_COMPOSE=1` + Docker |
 
 Manual DoD still open: PyPI/TestPyPI name claim, GitHub Environments, independent

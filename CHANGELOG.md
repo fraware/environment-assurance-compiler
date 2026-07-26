@@ -19,7 +19,7 @@ are versioned separately (see [compatibility policy](docs/compatibility.md)).
   `ghcr.io/fraware/envassure-openenv` (same digest-pin / Cosign / Trivy gates
   as the base image; fail-closed on unresolved base digest).
 - `integrations.yml` matrix jobs for gym / openenv / opa / differential
-  (OPA binary pin `1.4.2`; compose via `ENVASURE_RUN_COMPOSE=1` when Docker
+  (OPA binary pin `1.18.2`; compose via `ENVASURE_RUN_COMPOSE=1` when Docker
   is available, otherwise skip gracefully).
 - Example contracts E2–E5 (`openenv_refund`, `reference_systems/refund_service`,
   `opa_authorization`, `gymnasium_edge`) with `run.sh` / `verify.sh` /

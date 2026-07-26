@@ -438,7 +438,7 @@ jobs:
           cosign sign --yes "ghcr.io/fraware/envassure@${DIGEST}"
 
       - name: Trivy image scan (fail on CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ghcr.io/fraware/envassure@${{ steps.build.outputs.digest }}
           format: table
@@ -558,7 +558,7 @@ jobs:
           cosign sign --yes "ghcr.io/fraware/envassure-openenv@${DIGEST}"
 
       - name: Trivy image scan (fail on CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: ghcr.io/fraware/envassure-openenv@${{ steps.build.outputs.digest }}
           format: table

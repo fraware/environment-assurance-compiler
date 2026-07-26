@@ -3,11 +3,11 @@
   "project": "envassure",
   "status": "bundle-scaffold",
   "note": "Full release-manifest.json is produced by Milestone A generators; this scaffold records pack + repo coordinates for local verify.",
-  "source_commit": "03f852a7d32ab4ef868297503f62fed5b0227617",
+  "source_commit": "7e2ba9b5a7c4eea1d0ed7ac05694712eff88748f",
   "packs": [
     "envassure-delegated-authorization",
     "envassure-stochastic-operations",
     "envassure-transactional-refund"
   ],
-  "generated_at": "2026-07-26T10:22:25.629123+00:00"
+  "generated_at": "2026-07-26T13:01:38.141930+00:00"
 }
