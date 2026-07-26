@@ -21,6 +21,7 @@ def compile_proof_obligations(world: WorldDefinition) -> ProofObligationBundle:
     obligations.extend(generate_deterministic_reset_replay(world))
     obligations.extend(generate_observation_separation(world))
     obligations.extend(generate_reward_trace_binding(world))
+    obligations.extend(generate_idempotency_safety(world))
     return ProofObligationBundle(
         environment_id=world.environment_id,
         ir_digest=canonical_hash(world.content_dict()),
@@ -52,7 +53,10 @@ def generate_authorization_preservation(world: WorldDefinition) -> list[ProofObl
                     "fails or is denied, authoritative state and external effects remain unchanged."
                 ),
                 claim_kind="authorization_preservation",
-                source_elements=[f"action:{action.id}", *(f"failure:{f}" for f in action.failure_ids)],
+                source_elements=[
+                    f"action:{action.id}",
+                    *(f"failure:{f}" for f in action.failure_ids),
+                ],
                 assumptions=[
                     "Runtime uses fail-closed authorization compilation.",
                     "Audit/denial events may append; authoritative entity state must not.",
@@ -118,13 +122,7 @@ def generate_resource_conservation(world: WorldDefinition) -> list[ProofObligati
                 notes="Not a discharged proof — absence of resources only.",
             )
         ]
-    writers = sorted(
-        {
-            auth
-            for s in resources
-            for auth in (s.mutation_authority or [])
-        }
-    )
+    writers = sorted({auth for s in resources for auth in (s.mutation_authority or [])})
     unsupported: list[str] = []
     if world.transaction_model in {"none", ""}:
         unsupported.append("transaction_model=none; conservation checks are best-effort")
@@ -136,8 +134,7 @@ def generate_resource_conservation(world: WorldDefinition) -> list[ProofObligati
                 "net change equals declared effects; failed/denied steps do not consume."
             ),
             claim_kind="resource_conservation",
-            source_elements=[f"state:{s.id}" for s in resources]
-            + [f"action:{a}" for a in writers],
+            source_elements=[f"state:{s.id}" for s in resources] + [f"action:{a}" for a in writers],
             assumptions=[
                 "Effects are compiled through the expression/runtime pipeline.",
                 "External side effects that mint/burn resources are declared.",
@@ -150,7 +147,9 @@ def generate_resource_conservation(world: WorldDefinition) -> list[ProofObligati
                 "mutation_reset_integrity",
             ],
             unsupported_conditions=unsupported,
-            status="unsupported" if unsupported and world.determinism == "externally_nondeterministic" else "generated",
+            status="unsupported"
+            if unsupported and world.determinism == "externally_nondeterministic"
+            else "generated",
             mechanism_strength="runtime_checkable",
         )
     ]
@@ -218,9 +217,7 @@ def generate_observation_separation(world: WorldDefinition) -> list[ProofObligat
             )
         ]
     hidden = [s.id for s in world.state if s.evaluator_visible and not s.policy_visible]
-    omitted = sorted(
-        {p for obs in world.observations for p in (obs.omitted_paths or [])}
-    )
+    omitted = sorted({p for obs in world.observations for p in (obs.omitted_paths or [])})
     return [
         ProofObligation(
             id="obl.obs.separation",
@@ -311,6 +308,61 @@ def generate_reward_trace_binding(world: WorldDefinition) -> list[ProofObligatio
     ]
 
 
+def generate_idempotency_safety(world: WorldDefinition) -> list[ProofObligation]:
+    """Idempotent actions must not double-apply effects under replay."""
+    out: list[ProofObligation] = []
+    for action in world.actions:
+        idem = (action.idempotency or "").strip().lower()
+        if not idem or idem in {"none", "unsupported", "n/a"}:
+            continue
+        unsupported: list[str] = []
+        status = "generated"
+        if "unsupported" in idem:
+            unsupported.append(f"idempotency mode unsupported: {action.idempotency}")
+            status = "unsupported"
+        out.append(
+            ProofObligation(
+                id=f"obl.idempotency.{action.id}",
+                claim=(
+                    f"Action {action.id!r} with idempotency={action.idempotency!r} "
+                    "must yield equal authoritative state on keyed replay."
+                ),
+                claim_kind="idempotency_safety",
+                source_elements=[f"action:{action.id}"],
+                assumptions=[
+                    "Clients supply stable idempotency keys when required by the mode.",
+                    "Runtime records keyed receipts for replay comparison.",
+                ],
+                domains=["idempotency", "runtime", "differential"],
+                backend_requirements=["runtime_engine_event_sourced", "opa_rego_v1"],
+                expected_evidence=[
+                    "idempotent_replay_equal",
+                    "differential.idempotency",
+                ],
+                unsupported_conditions=unsupported,
+                status=status,  # type: ignore[arg-type]
+                mechanism_strength="runtime_checkable",
+            )
+        )
+    if not out:
+        out.append(
+            ProofObligation(
+                id="obl.idempotency.na",
+                claim="No idempotent actions declared; idempotency safety not applicable.",
+                claim_kind="idempotency_safety",
+                source_elements=[],
+                assumptions=[],
+                domains=["idempotency"],
+                backend_requirements=[],
+                expected_evidence=[],
+                unsupported_conditions=["no_idempotent_actions"],
+                status="deferred",
+                mechanism_strength="syntactic",
+            )
+        )
+    return out
+
+
 def validate_proof_obligations(
     bundle: ProofObligationBundle,
     *,
@@ -346,9 +398,8 @@ def validate_proof_obligations(
                     subject=obl.id,
                 )
             )
-        if (
-            obl.mechanism_strength == "formal_unproven"
-            and "formal_proof" in " ".join(obl.expected_evidence)
+        if obl.mechanism_strength == "formal_unproven" and "formal_proof" in " ".join(
+            obl.expected_evidence
         ):
             report.add(
                 make_diagnostic(
@@ -463,9 +514,7 @@ def _assert_observation_separation_runtime(world: WorldDefinition) -> Diagnostic
         )
         obs = observe_or_empty(state, actor=actor, projections=projections)
         if missing:
-            leaked = probe_observation_leaks(
-                obs, missing_or_unknown_projection=True
-            )
+            leaked = probe_observation_leaks(obs, missing_or_unknown_projection=True)
             if leaked:
                 report.add(
                     make_diagnostic(
@@ -480,17 +529,13 @@ def _assert_observation_separation_runtime(world: WorldDefinition) -> Diagnostic
                 )
             continue
         assert actor.observation_projection_id is not None
-        forbidden = list(hidden) + list(
-            projections[actor.observation_projection_id].omitted_paths
-        )
+        forbidden = list(hidden) + list(projections[actor.observation_projection_id].omitted_paths)
         leaked = probe_observation_leaks(obs, forbidden_paths=forbidden)
         for path in leaked:
             report.add(
                 make_diagnostic(
                     "EAC5001",
-                    reason=(
-                        f"actor {actor.id!r} observation leaks forbidden path {path!r}"
-                    ),
+                    reason=(f"actor {actor.id!r} observation leaks forbidden path {path!r}"),
                     subject=actor.id,
                     details={"path": path},
                     affected_artifacts=[

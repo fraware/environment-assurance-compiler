@@ -19,6 +19,7 @@ ClaimKind = Literal[
     "deterministic_reset_replay",
     "observation_separation",
     "reward_trace_binding",
+    "idempotency_safety",
 ]
 
 ObligationStatus = Literal[

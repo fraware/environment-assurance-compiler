@@ -1,0 +1,8 @@
+{
+  "authorized": true,
+  "state_before": {"request_status": "pending"},
+  "state_after": {"request_status": "pending"},
+  "replay_equal": true,
+  "reward_bound": true,
+  "idempotency_key": null
+}

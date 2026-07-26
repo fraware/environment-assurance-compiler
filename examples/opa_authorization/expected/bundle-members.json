@@ -1,0 +1,14 @@
+{
+  "members": [
+    ".manifest",
+    "policy.rego",
+    "data.json",
+    "schema.json",
+    "policy_test.rego",
+    "obligation-map.json"
+  ],
+  "required_families": [
+    "authorization_preservation",
+    "idempotency_safety"
+  ]
+}

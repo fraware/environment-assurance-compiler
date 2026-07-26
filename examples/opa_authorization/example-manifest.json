@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "E4",
+  "slug": "opa_authorization",
+  "title": "OPA authorization obligations",
+  "description": "Rego v1 obligation bundle generation with optional system OPA fmt/test/evaluate.",
+  "status": "contract-complete",
+  "requires": {
+    "python": ">=3.11",
+    "envassure": "*",
+    "extras": ["opa"]
+  },
+  "entrypoints": {
+    "run": "run.sh",
+    "verify": "verify.sh"
+  },
+  "paths": {
+    "input": "input",
+    "expected": "expected"
+  },
+  "depends_on_integrations": ["opa"],
+  "notes": [
+    "System OPA binary is pinned in integrations.yml; not vendored into the wheel.",
+    "generate/report run without opa; test/evaluate skip gracefully when absent."
+  ]
+}

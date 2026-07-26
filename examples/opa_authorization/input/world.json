@@ -1,0 +1,480 @@
+{
+  "ir_version": "0.2.0",
+  "environment_id": "opa.authorization.v1",
+  "name": "OPA Authorization Example",
+  "version": "0.1.0",
+  "description": "Minimal authorization + idempotency world for OPA obligation demos.",
+  "domain": "reference",
+  "assurance_profile": "baseline",
+  "task_families": [
+    "approve"
+  ],
+  "semantic_sources": [],
+  "state_model_version": "1.0",
+  "clock_model": "discrete_steps",
+  "stochasticity_model": "none",
+  "reset_semantics": "full_reset",
+  "termination_semantics": "goal_or_horizon",
+  "truncation_semantics": "horizon",
+  "concurrency_model": "single_actor",
+  "transaction_model": "none",
+  "external_dependencies": [],
+  "confidentiality_boundaries": [],
+  "declared_fidelity_level": "EF-1",
+  "known_unsupported_behavior": [],
+  "permissible_uses": [],
+  "determinism": "fully_deterministic",
+  "state": [
+    {
+      "id": "request_status",
+      "name": "request_status",
+      "type": "enum",
+      "constraints": [],
+      "owning_aggregate": null,
+      "initial_generator": "\"draft\"",
+      "persistence": "session",
+      "reset_class": "reset_on_episode",
+      "mutation_authority": [],
+      "mutability": "mutable",
+      "confidentiality": "internal",
+      "policy_visible": true,
+      "evaluator_visible": false,
+      "provenance": {
+        "source_ids": [
+          "manual"
+        ],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "uncertainty": null,
+      "derived_expression": null,
+      "enum_values": [
+        "draft",
+        "pending",
+        "approved",
+        "denied"
+      ],
+      "record_fields": null
+    }
+  ],
+  "actors": [
+    {
+      "id": "requester",
+      "actor_class": "requester",
+      "identity_model": "named",
+      "roles": [],
+      "capabilities": [],
+      "credentials": [],
+      "authority_source": null,
+      "delegation_rules": [],
+      "revocation_rules": [],
+      "observation_projection_id": "requester_view",
+      "available_actions": [
+        "submit",
+        "observe"
+      ],
+      "lifecycle": "episode",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    },
+    {
+      "id": "approver",
+      "actor_class": "approver",
+      "identity_model": "named",
+      "roles": [
+        "approver"
+      ],
+      "capabilities": [],
+      "credentials": [],
+      "authority_source": "role:approver",
+      "delegation_rules": [],
+      "revocation_rules": [],
+      "observation_projection_id": "approver_view",
+      "available_actions": [
+        "approve",
+        "deny",
+        "observe"
+      ],
+      "lifecycle": "episode",
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "observations": [
+    {
+      "id": "requester_view",
+      "target_actor_class": "requester",
+      "visible_paths": [
+        "request_status"
+      ],
+      "omitted_paths": [],
+      "transformations": [],
+      "aggregation": null,
+      "delay": null,
+      "noise": null,
+      "staleness": null,
+      "access_control": null,
+      "information_flow_labels": [],
+      "error_policy": null,
+      "side_channel_policy": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    },
+    {
+      "id": "approver_view",
+      "target_actor_class": "approver",
+      "visible_paths": [
+        "request_status"
+      ],
+      "omitted_paths": [],
+      "transformations": [],
+      "aggregation": null,
+      "delay": null,
+      "noise": null,
+      "staleness": null,
+      "access_control": null,
+      "information_flow_labels": [],
+      "error_policy": null,
+      "side_channel_policy": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "actions": [
+    {
+      "id": "submit",
+      "version": "1",
+      "actor_classes": [
+        "requester"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [],
+      "writes": [
+        "request_status"
+      ],
+      "intended_effects": [
+        "request_status = \"pending\""
+      ],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": "keyed",
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "approve",
+      "version": "1",
+      "actor_classes": [
+        "approver"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": "role:approver",
+      "reads": [],
+      "writes": [
+        "request_status"
+      ],
+      "intended_effects": [
+        "request_status = \"approved\""
+      ],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [
+        "unauthorized"
+      ],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "deny",
+      "version": "1",
+      "actor_classes": [
+        "approver"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": "role:approver",
+      "reads": [],
+      "writes": [
+        "request_status"
+      ],
+      "intended_effects": [
+        "request_status = \"denied\""
+      ],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [
+        "unauthorized"
+      ],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    },
+    {
+      "id": "observe",
+      "version": "1",
+      "actor_classes": [
+        "requester",
+        "approver"
+      ],
+      "input_schema": {},
+      "preconditions": [],
+      "authorization": null,
+      "reads": [],
+      "writes": [],
+      "intended_effects": [],
+      "external_side_effects": [],
+      "resource_effects": [],
+      "evidence_emitted": [],
+      "success_outcomes": [
+        "ok"
+      ],
+      "failure_ids": [],
+      "timeout_behavior": null,
+      "retry_behavior": null,
+      "idempotency": null,
+      "transaction_boundary": null,
+      "compensation_action": null,
+      "concurrency": null,
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_semantics": []
+    }
+  ],
+  "failures": [],
+  "transitions": [
+    {
+      "id": "t_submit",
+      "action_id": "submit",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_submit.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "submitted"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_approve",
+      "action_id": "approve",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_approve.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "approved"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_deny",
+      "action_id": "deny",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_deny.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "denied"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    },
+    {
+      "id": "t_observe",
+      "action_id": "observe",
+      "guard": null,
+      "priority": 0,
+      "conflict_semantics": "priority",
+      "kind": "deterministic",
+      "branches": [
+        {
+          "id": "t_observe.ok",
+          "probability": null,
+          "probability_source": null,
+          "events": [
+            "observed"
+          ],
+          "side_effect_intents": [],
+          "observation": null,
+          "terminal": false
+        }
+      ],
+      "emitted_evidence": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      },
+      "unsupported_assumptions": []
+    }
+  ],
+  "tasks": [
+    {
+      "id": "get_approval",
+      "family": "approve",
+      "initial_constraints": [],
+      "actor_assignment": {},
+      "intent": "Reach approved status",
+      "goal_claims": [
+        "request_status == \"approved\""
+      ],
+      "prohibited_behavior": [],
+      "process_requirements": [],
+      "horizon": 8,
+      "resource_budget": {},
+      "permitted_tools": [],
+      "verifier_claim_ids": [],
+      "solvability_method": null,
+      "difficulty_factors": [],
+      "provenance": {
+        "source_ids": [],
+        "decision_ids": [],
+        "fact_ids": [],
+        "origin_kind": null,
+        "notes": null
+      }
+    }
+  ],
+  "verifiers": [],
+  "evidence_obligations": [],
+  "ambiguities": [],
+  "provenance": {
+    "source_ids": [],
+    "decision_ids": [],
+    "fact_ids": [],
+    "origin_kind": null,
+    "notes": null
+  }
+}
