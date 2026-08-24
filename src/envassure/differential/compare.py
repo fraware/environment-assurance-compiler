@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from math import comb, sqrt
+from math import sqrt
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -41,7 +41,9 @@ class ComparisonTolerances(BaseModel):
     numeric_abs: float = 1e-6
     numeric_rel: float = 1e-3
     stochastic_min_samples: int = 30
-    stochastic_z: float = 1.96  # ~95% Wald / exact paired gate
+    # Critical value for the paired mean-difference confidence interval.
+    # 1.96 corresponds approximately to a two-sided 95% interval.
+    stochastic_z: float = 1.96
     # Declared absolute rate-difference margin for stochastic equivalence.
     equivalence_margin: float | None = 0.05
 
@@ -310,10 +312,42 @@ def _compare_dimension(
     return DimensionVerdict(dimension=dim, status=VerdictStatus.NOT_APPLICABLE)
 
 
+def _paired_rate_difference_ci(
+    samples: list[tuple[bool, bool]],
+    *,
+    z: float,
+) -> tuple[float, float, float, float]:
+    """Asymptotic paired CI for candidate-minus-reference success probability.
+
+    Each paired observation contributes -1, 0, or +1. The variance is therefore
+    estimated on the paired differences themselves, preserving pairing instead
+    of treating the two success rates as independent samples.
+
+    Returns ``(difference, lower, upper, standard_error)``.
+    """
+    n = len(samples)
+    diffs = [float(candidate) - float(reference) for reference, candidate in samples]
+    difference = sum(diffs) / n
+    if n <= 1:
+        return difference, float("-inf"), float("inf"), float("inf")
+    variance = sum((value - difference) ** 2 for value in diffs) / (n - 1)
+    standard_error = sqrt(max(variance, 0.0) / n)
+    half_width = z * standard_error
+    return difference, difference - half_width, difference + half_width, standard_error
+
+
 def _statistical_success(
     samples: list[tuple[bool, bool]],
     tol: ComparisonTolerances,
 ) -> DimensionVerdict:
+    """Evaluate paired binary equivalence without using non-rejection as proof.
+
+    A match requires the entire paired confidence interval for the
+    candidate-minus-reference success-rate difference to lie inside the
+    preregistered equivalence margin. If the interval overlaps a margin, the
+    result is indeterminate. A mismatch is reported only when the entire
+    interval is beyond one equivalence boundary.
+    """
     n = len(samples)
     if tol.equivalence_margin is None:
         return DimensionVerdict(
@@ -323,9 +357,25 @@ def _statistical_success(
             confidence_note="equivalence_margin not declared for stochastic comparison",
             detail="missing_equivalence_margin",
         )
+    if tol.equivalence_margin <= 0:
+        return DimensionVerdict(
+            dimension=ComparisonDimension.SUCCESS,
+            status=VerdictStatus.INDETERMINATE,
+            statistical=True,
+            confidence_note="equivalence_margin must be positive for stochastic comparison",
+            detail="invalid_equivalence_margin",
+        )
+    if tol.stochastic_z <= 0:
+        return DimensionVerdict(
+            dimension=ComparisonDimension.SUCCESS,
+            status=VerdictStatus.INDETERMINATE,
+            statistical=True,
+            confidence_note="stochastic_z must be positive for stochastic comparison",
+            detail="invalid_confidence_critical_value",
+        )
     if n < tol.stochastic_min_samples:
         note = (
-            f"only {n} samples; need ≥{tol.stochastic_min_samples} for paired "
+            f"only {n} samples; need >= {tol.stochastic_min_samples} for paired "
             "binary success equivalence — indeterminate (not a match)"
         )
         return DimensionVerdict(
@@ -336,81 +386,48 @@ def _statistical_success(
             detail="insufficient_samples",
         )
 
-    # Paired discordant counts for exact McNemar-style gate.
-    b = sum(1 for r, c in samples if r and not c)  # ref success, cand fail
-    c = sum(1 for r, c in samples if (not r) and c)  # ref fail, cand success
-    ref_rate = sum(1 for r, _ in samples if r) / n
-    cand_rate = sum(1 for _, s in samples if s) / n
-    rate_diff = abs(ref_rate - cand_rate)
+    ref_rate = sum(1 for reference, _ in samples if reference) / n
+    cand_rate = sum(1 for _, candidate in samples if candidate) / n
+    difference, lower, upper, standard_error = _paired_rate_difference_ci(
+        samples,
+        z=tol.stochastic_z,
+    )
     margin = tol.equivalence_margin
-
-    discordant = b + c
-    if discordant == 0:
-        # Perfect agreement on paired outcomes.
-        note = f"n={n} paired exact agreement ref_rate={ref_rate:.3f}"
-        return DimensionVerdict(
-            dimension=ComparisonDimension.SUCCESS,
-            status=VerdictStatus.MATCH,
-            statistical=True,
-            confidence_note=note,
-        )
-
-    # Exact two-sided binomial test on discordant pairs (McNemar exact).
-    # Under null of equal rates, P(B=b | B+C=d) ~ Binomial(d, 0.5).
-    p_exact = _mcnemar_exact_p(b, c)
-    within_margin = rate_diff <= margin
-    # Also keep a Wald z as a secondary note.
-    pooled = (ref_rate + cand_rate) / 2.0
-    se = sqrt(max(pooled * (1.0 - pooled) * 2.0 / n, 1e-12))
-    z = rate_diff / se
+    discordant = sum(1 for reference, candidate in samples if reference != candidate)
     note = (
         f"n={n} ref_rate={ref_rate:.3f} cand_rate={cand_rate:.3f} "
-        f"|Δ|={rate_diff:.3f} margin={margin} discordant={discordant} "
-        f"mcnemar_p={p_exact:.4f} z={z:.3f}"
+        f"delta(cand-ref)={difference:.4f} paired_ci=[{lower:.4f},{upper:.4f}] "
+        f"margin=[{-margin:.4f},{margin:.4f}] se={standard_error:.4f} "
+        f"z={tol.stochastic_z:.3f} discordant={discordant}"
     )
-    # Equivalence: within declared margin AND exact test does not reject symmetry
-    # at the stochastic_z-derived alpha (~0.05 for z=1.96).
-    alpha = 2.0 * (1.0 - _approx_phi(tol.stochastic_z))
-    if within_margin and p_exact >= alpha:
+
+    if lower >= -margin and upper <= margin:
         return DimensionVerdict(
             dimension=ComparisonDimension.SUCCESS,
             status=VerdictStatus.MATCH,
             statistical=True,
             confidence_note=note,
+            detail="paired confidence interval contained in declared equivalence region",
         )
+
+    # Only call a mismatch when the confidence interval is wholly outside the
+    # declared equivalence region. Overlap is insufficient evidence either way.
+    if lower > margin or upper < -margin:
+        return DimensionVerdict(
+            dimension=ComparisonDimension.SUCCESS,
+            status=VerdictStatus.MISMATCH,
+            statistical=True,
+            confidence_note=note,
+            detail="paired confidence interval lies beyond declared equivalence margin",
+        )
+
     return DimensionVerdict(
         dimension=ComparisonDimension.SUCCESS,
-        status=VerdictStatus.MISMATCH,
+        status=VerdictStatus.INDETERMINATE,
         statistical=True,
         confidence_note=note,
-        detail="paired success rates diverge beyond declared equivalence margin",
+        detail="paired confidence interval overlaps declared equivalence margin",
     )
-
-
-def _mcnemar_exact_p(b: int, c: int) -> float:
-    """Two-sided exact McNemar p-value on discordant pair counts."""
-    d = b + c
-    if d == 0:
-        return 1.0
-    observed = min(b, c)
-    # Sum probabilities of outcomes as or more extreme than observed.
-    total = 0.0
-    for k in range(0, observed + 1):
-        total += comb(d, k) * (0.5**d)
-    # Two-sided: double the one-sided tail, capped at 1.
-    return min(1.0, 2.0 * total)
-
-
-def _approx_phi(z: float) -> float:
-    """Rough standard-normal CDF for mapping z threshold → alpha."""
-    # Abramowitz & Stegun 26.2.17 approximation.
-    t = 1.0 / (1.0 + 0.2316419 * abs(z))
-    dens = 0.3989422804014327 * (2.718281828459045 ** (-0.5 * z * z))
-    poly = 0.319381530 + t * (
-        -0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))
-    )
-    cdf = 1.0 - dens * poly * t
-    return cdf if z >= 0 else 1.0 - cdf
 
 
 def _mapping_verdict(
