@@ -317,19 +317,19 @@ def evaluate_eac_r15_bundle(
 
     all_complete = True
     for family, expected in registered.items():
-        item = observed.get(family)
-        if item is None:
+        evidence_item = observed.get(family)
+        if evidence_item is None:
             all_complete = False
             continue
-        if item.source_package_digest != expected.source_package_digest:
+        if evidence_item.source_package_digest != expected.source_package_digest:
             blockers.append(f"source_package_digest_mismatch:{family}")
-        if item.heldout_probe_commitment != expected.heldout_probe_commitment:
+        if evidence_item.heldout_probe_commitment != expected.heldout_probe_commitment:
             blockers.append(f"probe_commitment_mismatch:{family}")
-        if item.adjudicated_probe_count < expected.heldout_probe_count:
+        if evidence_item.adjudicated_probe_count < expected.heldout_probe_count:
             blockers.append(f"insufficient_adjudicated_probes:{family}")
-        if item.status != "complete":
+        if evidence_item.status != "complete":
             all_complete = False
-            blockers.append(f"workflow_not_complete:{family}:{item.status}")
+            blockers.append(f"workflow_not_complete:{family}:{evidence_item.status}")
 
     # Presence is recorded, but local presence is not trusted attestation verification.
     if evidence.external_custodian_attestation_digest is None:
