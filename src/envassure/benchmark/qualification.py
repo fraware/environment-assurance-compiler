@@ -53,6 +53,8 @@ _REQUIRED_FAMILIES: frozenset[str] = frozenset(
 )
 _REQUIRED_ESTIMANDS: frozenset[str] = frozenset(
     {
+        "fact_precision_by_evidence_class",
+        "fact_recall_by_evidence_class",
         "wrong_commitment_rate",
         "correct_abstention_rate",
         "incorrect_abstention_rate",
@@ -61,6 +63,7 @@ _REQUIRED_ESTIMANDS: frozenset[str] = frozenset(
         "authorization_agreement",
         "failure_agreement",
         "observation_agreement",
+        "stochastic_equivalence",
         "hidden_reference_leakage",
         "cegr_counterexample_rate",
         "expert_correction_time",
@@ -74,6 +77,14 @@ def _sha256(value: str, *, field: str) -> str:
     text = value.strip().lower()
     if len(text) != 64 or any(ch not in "0123456789abcdef" for ch in text):
         raise ValueError(f"{field} must be a lowercase sha256 digest")
+    return text
+
+
+def _git_object_id(value: str, *, field: str) -> str:
+    """Validate a Git object ID without conflating it with artifact SHA-256."""
+    text = value.strip().lower()
+    if len(text) not in {40, 64} or any(ch not in "0123456789abcdef" for ch in text):
+        raise ValueError(f"{field} must be a 40- or 64-hex Git object id")
     return text
 
 
@@ -140,11 +151,12 @@ class EACR15Registration(BaseModel):
     generated_fixture_suite_is_qualification_reference: Literal[False] = False
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator(
-        "envassure_commit",
-        "reference_custodian_commitment",
-        "protocol_document_digest",
-    )
+    @field_validator("envassure_commit")
+    @classmethod
+    def _commit_id(cls, value: str, info: Any) -> str:
+        return _git_object_id(value, field=info.field_name)
+
+    @field_validator("reference_custodian_commitment", "protocol_document_digest")
     @classmethod
     def _root_digest(cls, value: str, info: Any) -> str:
         return _sha256(value, field=info.field_name)
@@ -231,15 +243,15 @@ class EACR15EvidenceBundle(BaseModel):
     independent_reviewer_signoff_digest: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator(
-        "registration_digest",
-        "envassure_commit",
-        "aggregate_report_digest",
-        "negative_results_digest",
-    )
+    @field_validator("registration_digest", "aggregate_report_digest", "negative_results_digest")
     @classmethod
     def _bundle_digest(cls, value: str, info: Any) -> str:
         return _sha256(value, field=info.field_name)
+
+    @field_validator("envassure_commit")
+    @classmethod
+    def _bundle_commit_id(cls, value: str, info: Any) -> str:
+        return _git_object_id(value, field=info.field_name)
 
     @field_validator(
         "external_custodian_attestation_digest",
