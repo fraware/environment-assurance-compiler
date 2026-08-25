@@ -366,11 +366,11 @@ def evaluate_eac_r15_bundle(
 
 
 __all__ = [
+    "MIN_HELDOUT_PROBES_PER_FAMILY",
     "EACR15EvidenceBundle",
     "EACR15ProtocolAssessment",
     "EACR15Registration",
     "EstimandName",
-    "MIN_HELDOUT_PROBES_PER_FAMILY",
     "StochasticAnalysisRegistration",
     "WorkflowEvidence",
     "WorkflowFamily",
