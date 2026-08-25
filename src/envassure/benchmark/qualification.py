@@ -176,7 +176,9 @@ class EACR15Registration(BaseModel):
             missing = sorted(_REQUIRED_ESTIMANDS - estimands)
             raise ValueError(f"EAC-R15 primary estimands missing required entries: {missing}")
         if not self.prohibited_reference_access_before_freeze:
-            raise ValueError("qualification registration must prohibit reference access before freeze")
+            raise ValueError(
+                "qualification registration must prohibit reference access before freeze"
+            )
         return self
 
     @property
