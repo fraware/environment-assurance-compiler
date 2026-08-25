@@ -23,7 +23,9 @@ def test_identical_paired_samples_establish_equivalence() -> None:
 def test_point_estimate_equality_does_not_prove_equivalence() -> None:
     # Equal aggregate rates but substantial paired discordance. The point
     # estimate is zero, yet uncertainty is wider than the +/-5% margin.
-    samples = [(True, False)] * 10 + [(False, True)] * 10 + [(True, True)] * 40 + [(False, False)] * 40
+    samples = (
+        [(True, False)] * 10 + [(False, True)] * 10 + [(True, True)] * 40 + [(False, False)] * 40
+    )
     verdict = _statistical_success(
         samples,
         ComparisonTolerances(stochastic_min_samples=30, equivalence_margin=0.05),
