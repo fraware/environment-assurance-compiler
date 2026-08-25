@@ -34,8 +34,8 @@ _ALL_ESTIMANDS = (
 )
 
 
-def _digest(char: str) -> str:
-    return char * 64
+def _digest(value: int) -> str:
+    return f"{value:064x}"
 
 
 def _workflow(family: str, index: int, *, probe_count: int = 100) -> WorkflowRegistration:
@@ -50,10 +50,10 @@ def _workflow(family: str, index: int, *, probe_count: int = 100) -> WorkflowReg
         )
     return WorkflowRegistration(
         family=family,  # type: ignore[arg-type]
-        source_package_digest=_digest(str(index)),
-        source_manifest_digest=_digest(chr(ord("a") + index)),
-        reference_commitment=_digest(chr(ord("d") + index)),
-        heldout_probe_commitment=_digest(chr(ord("g") + index)),
+        source_package_digest=_digest(10 + index),
+        source_manifest_digest=_digest(20 + index),
+        reference_commitment=_digest(30 + index),
+        heldout_probe_commitment=_digest(40 + index),
         heldout_probe_count=probe_count,
         estimands=_ALL_ESTIMANDS,
         stochastic_analysis=stochastic,
@@ -71,8 +71,8 @@ def _registration() -> EACR15Registration:
         ),
         primary_estimands=_ALL_ESTIMANDS,
         multiple_comparison_policy="preregistered_primary",
-        reference_custodian_commitment=_digest("a"),
-        protocol_document_digest=_digest("b"),
+        reference_custodian_commitment=_digest(50),
+        protocol_document_digest=_digest(51),
     )
 
 
@@ -80,16 +80,16 @@ def _workflow_evidence(reg: WorkflowRegistration, index: int) -> WorkflowEvidenc
     return WorkflowEvidence(
         family=reg.family,
         source_package_digest=reg.source_package_digest,
-        compiled_ir_digest=_digest(chr(ord("j") + index)),
-        assumptions_digest=_digest(chr(ord("m") + index)),
-        reconciliation_log_digest=_digest(chr(ord("p") + index)),
+        compiled_ir_digest=_digest(60 + index),
+        assumptions_digest=_digest(70 + index),
+        reconciliation_log_digest=_digest(80 + index),
         heldout_probe_commitment=reg.heldout_probe_commitment,
         adjudicated_probe_count=reg.heldout_probe_count,
-        raw_results_digest=_digest(chr(ord("s") + index)),
-        statistics_digest=_digest(chr(ord("v") + index)),
-        counterexamples_digest=_digest(chr(ord("0") + index)),
-        expert_effort_digest=_digest(chr(ord("4") + index)),
-        leakage_analysis_digest=_digest(chr(ord("7") + index)),
+        raw_results_digest=_digest(90 + index),
+        statistics_digest=_digest(100 + index),
+        counterexamples_digest=_digest(110 + index),
+        expert_effort_digest=_digest(120 + index),
+        leakage_analysis_digest=_digest(130 + index),
         status="complete",
     )
 
@@ -103,10 +103,10 @@ def _bundle(registration: EACR15Registration) -> EACR15EvidenceBundle:
             _workflow_evidence(item, index)
             for index, item in enumerate(registration.workflow_registrations)
         ),
-        aggregate_report_digest=_digest("a"),
-        negative_results_digest=_digest("b"),
-        external_custodian_attestation_digest=_digest("c"),
-        independent_reviewer_signoff_digest=_digest("d"),
+        aggregate_report_digest=_digest(140),
+        negative_results_digest=_digest(141),
+        external_custodian_attestation_digest=_digest(142),
+        independent_reviewer_signoff_digest=_digest(143),
     )
 
 
@@ -138,10 +138,10 @@ def test_stochastic_family_requires_preregistered_equivalence_method() -> None:
     with pytest.raises(ValidationError, match="stochastic_analysis"):
         WorkflowRegistration(
             family="stochastic_operational",
-            source_package_digest=_digest("1"),
-            source_manifest_digest=_digest("2"),
-            reference_commitment=_digest("3"),
-            heldout_probe_commitment=_digest("4"),
+            source_package_digest=_digest(1),
+            source_manifest_digest=_digest(2),
+            reference_commitment=_digest(3),
+            heldout_probe_commitment=_digest(4),
             heldout_probe_count=100,
             estimands=_ALL_ESTIMANDS,
         )
@@ -181,7 +181,7 @@ def test_probe_commitment_rebinding_breaks_local_integrity() -> None:
     registration = _registration()
     evidence = _bundle(registration)
     payload = evidence.model_dump(mode="json")
-    payload["workflows"][0]["heldout_probe_commitment"] = _digest("f")
+    payload["workflows"][0]["heldout_probe_commitment"] = _digest(200)
     rebound = EACR15EvidenceBundle.model_validate(payload)
 
     assessment = evaluate_eac_r15_bundle(registration, rebound)
