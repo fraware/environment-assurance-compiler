@@ -1,0 +1,78 @@
+name: One-shot EAC-R15 estimand alignment
+
+on:
+  push:
+    branches: [assurance/eac-r15-protocol]
+    paths:
+      - ".github/workflows/align-eac-r15-estimands-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: assurance/eac-r15-protocol
+      - name: Align typed estimands with published EAC-R15 protocol
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path("src/envassure/benchmark/qualification.py")
+          source = source_path.read_text(encoding="utf-8")
+          old = '    "observation_agreement",\n    "stochastic_equivalence",\n'
+          new = '    "observation_agreement",\n    "idempotency_agreement",\n    "stochastic_equivalence",\n'
+          if source.count(old) != 2:
+              raise SystemExit("expected exactly two observation/stochastic estimand anchors")
+          source = source.replace(old, new)
+          old = '    "cegr_counterexample_rate",\n    "expert_correction_time",\n'
+          new = '    "cegr_counterexample_rate",\n    "cegr_iteration_count",\n    "expert_correction_time",\n'
+          if source.count(old) != 2:
+              raise SystemExit("expected exactly two CEGR/expert estimand anchors")
+          source = source.replace(old, new)
+          source_path.write_text(source, encoding="utf-8")
+
+          test_path = Path("tests/test_eac_r15_protocol.py")
+          tests = test_path.read_text(encoding="utf-8")
+          old = '    "observation_agreement",\n    "stochastic_equivalence",\n'
+          new = '    "observation_agreement",\n    "idempotency_agreement",\n    "stochastic_equivalence",\n'
+          if tests.count(old) != 1:
+              raise SystemExit("expected one test estimand observation/stochastic anchor")
+          tests = tests.replace(old, new, 1)
+          old = '    "cegr_counterexample_rate",\n    "expert_correction_time",\n'
+          new = '    "cegr_counterexample_rate",\n    "cegr_iteration_count",\n    "expert_correction_time",\n'
+          if tests.count(old) != 1:
+              raise SystemExit("expected one test estimand CEGR/expert anchor")
+          tests = tests.replace(old, new, 1)
+
+          anchor = '''def test_locally_complete_bundle_is_still_not_a_qualification_claim() -> None:
+'''
+          addition = '''@pytest.mark.parametrize("estimand", ["idempotency_agreement", "cegr_iteration_count"])
+def test_published_protocol_estimands_cannot_be_omitted(estimand: str) -> None:
+    payload = _registration().model_dump(mode="json")
+    payload["primary_estimands"] = [
+        value for value in payload["primary_estimands"] if value != estimand
+    ]
+    with pytest.raises(ValidationError, match=estimand):
+        EACR15Registration.model_validate(payload)
+
+
+'''
+          if tests.count(anchor) != 1:
+              raise SystemExit("expected local-complete test anchor")
+          tests = tests.replace(anchor, addition + anchor, 1)
+          test_path.write_text(tests, encoding="utf-8")
+          PY
+      - name: Commit protocol estimand alignment
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name "repo-maintenance"
+          git config user.email "repo-maintenance@users.noreply.github.com"
+          git add src/envassure/benchmark/qualification.py tests/test_eac_r15_protocol.py
+          git diff --cached --quiet && exit 1
+          git commit -m "fix(benchmark): align EAC-R15 required estimands"
+          git push origin HEAD:assurance/eac-r15-protocol
