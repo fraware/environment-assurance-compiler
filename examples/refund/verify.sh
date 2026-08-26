@@ -33,7 +33,7 @@ done
 
 for name in \
   init.json import-openapi.json import-procedure.json import-traces.json \
-  reconcile.json decision.json build-ir.json lint.json run.json package.json \
+  reconcile.json build-ir.json lint.json run.json package.json \
   verify-pack.json refund-authoring.eap; do
   if [[ ! -f "${OUT_DIR}/${name}" ]]; then
     echo "error: missing .example-out/${name}; run bash examples/refund/run.sh first" >&2
@@ -65,7 +65,7 @@ from envassure.packaging import (
     verify_pack,
 )
 from envassure.reconciliation import ambiguity_id
-from envassure.review import load_ambiguities, load_decisions_dir
+from envassure.review import load_ambiguities
 
 root = Path(sys.argv[1])
 out = Path(sys.argv[2])
@@ -73,28 +73,32 @@ workspace = Path(sys.argv[3])
 expected = json.loads((root / "expected" / "ambiguity.json").read_text(encoding="utf-8"))
 classic = expected["classic_retry_ambiguity"]
 classic_id = ambiguity_id("action:submit_refund", "retry_behavior", "conflict")
+timeout_id = ambiguity_id("action:submit_refund", "timeout_behavior", "conflict")
 assert classic["fixture_alias"] == "AMB-0042"
 assert classic["subject"] == "action:submit_refund"
 assert classic["aspect"] == "retry_behavior"
 
-# Reconciliation must have failed closed before the decision, specifically on
-# undefined retry semantics, while persisting the ambiguity artifact for review.
+# Reconciliation must fail closed on the conflicted operational semantics while
+# still persisting ambiguity records for review.
 reconcile_payload = json.loads((out / "reconcile.json").read_text(encoding="utf-8"))
 assert reconcile_payload["ok"] is False, reconcile_payload
 assert reconcile_payload["exit_code"] != 0, reconcile_payload
 assert any(d["code"] == "EAC4027" for d in reconcile_payload["diagnostics"])
 
 ambiguities = load_ambiguities(workspace / "facts" / "ambiguities.json")
-decided = next(a for a in ambiguities if a.id == classic_id)
-assert decided.status == "accepted", decided
-assert decided.decision_id, decided
+action_conflicts = [
+    a
+    for a in ambiguities
+    if a.subject == "action:submit_refund" and a.conflict_class == "semantic_conflict"
+]
+assert len(action_conflicts) == 3, [a.model_dump(mode="json") for a in action_conflicts]
+assert all(a.status == "open" for a in action_conflicts)
+assert {classic_id, timeout_id} <= {a.id for a in action_conflicts}
+assert all(a.decision_id is None for a in action_conflicts)
 
-decisions = {d.decision_id: d for d in load_decisions_dir(workspace / "decisions")}
-decision = decisions[decided.decision_id]
-assert decision.ambiguity_id == classic_id
-assert decision.chosen_interpretation == "timeout_then_retry_requires_idempotency_key"
-assert decision.expert_role == "example_author"
-assert "modeling decision" in decision.rationale.lower()
+# This public contract must not smuggle in a decision artifact to make the
+# conflicts disappear. The scoped model compiles by excluding disputed fields.
+assert not list((workspace / "decisions").glob("*.json"))
 
 # The imported source files are the actual public inputs, byte for byte.
 for name in ("api.yaml", "refund-sop.md", "trace-0187.jsonl"):
@@ -115,32 +119,39 @@ assert lint_payload["profile"] == "executable", lint_payload
 world = load_world(workspace / "ir" / "world.json")
 assert world.environment_id == "refund.v1"
 assert world.declared_fidelity_level == "EF-0"
-assert world.known_unsupported_behavior == ["live_payment_rail"]
+assert world.known_unsupported_behavior == [
+    "live_payment_rail",
+    "timeout_retry_idempotency_semantics",
+]
 
 state = next(item for item in world.state if item.id == "refund_status")
 assert "sources/api.yaml" in state.provenance.source_ids
 
 action = next(item for item in world.actions if item.id == "submit_refund")
-assert action.retry_behavior == "timeout_then_retry_requires_idempotency_key"
-assert action.idempotency == "idempotency_key_required"
-assert action.timeout_behavior == "http_504_no_state_semantics"
-assert action.provenance.origin_kind == "human_decision"
-assert decided.decision_id in action.provenance.decision_ids
+assert action.timeout_behavior is None
+assert action.retry_behavior is None
+assert action.idempotency is None
+assert {
+    "timeout_behavior",
+    "retry_behavior",
+    "idempotency",
+    "authoritative_state_on_504",
+} <= set(action.unsupported_semantics)
+assert action.provenance.origin_kind == "inferred"
+assert action.provenance.decision_ids == []
 assert {
     "sources/api.yaml",
     "sources/refund-sop.md",
     "sources/trace-0187.jsonl",
 } <= set(action.provenance.source_ids)
 
-world_decided = next(item for item in world.ambiguities if item.id == classic_id)
-assert world_decided.status == "accepted"
-assert world_decided.decision_id == decided.decision_id
-
-# Any other ambiguity remains visible; the example does not silently mark
-# unrelated reconciliation records as resolved by the classic retry decision.
-for ambiguity in world.ambiguities:
-    if ambiguity.id != classic_id:
-        assert ambiguity.status == "open", ambiguity
+world_conflicts = [
+    a
+    for a in world.ambiguities
+    if a.subject == "action:submit_refund" and a.conflict_class == "semantic_conflict"
+]
+assert {a.id for a in world_conflicts} == {a.id for a in action_conflicts}
+assert all(a.status == "open" and a.decision_id is None for a in world_conflicts)
 
 run_payload = json.loads((out / "run.json").read_text(encoding="utf-8"))
 assert run_payload["ok"] is True
@@ -173,8 +184,8 @@ packed_action = next(
     for item in provenance["elements"]
     if item["kind"] == "action" and item["id"] == "submit_refund"
 )
-assert packed_action["provenance"]["origin_kind"] == "human_decision"
-assert decided.decision_id in packed_action["provenance"]["decision_ids"]
+assert packed_action["provenance"]["origin_kind"] == "inferred"
+assert packed_action["provenance"]["decision_ids"] == []
 assert {
     "sources/api.yaml",
     "sources/refund-sop.md",
@@ -197,11 +208,14 @@ claim = ledger.claims[0]
 assert claim.status == "structurally_valid"
 assert claim.coverage == "declared_only"
 assert claim.reviewer is None
-assert claim.known_gaps == ["live_payment_rail"]
+assert claim.known_gaps == [
+    "live_payment_rail",
+    "timeout_retry_idempotency_semantics",
+]
 assert "EF-0" in claim.claim
 
-print("verified E1 OpenAPI authoring contract", manifest.content_digest)
-print("remaining open ambiguity records", [a.id for a in world.ambiguities if a.status == "open"])
+print("verified E1 OpenAPI scoped authoring contract", manifest.content_digest)
+print("open action conflicts", [a.id for a in world_conflicts])
 PY
 
 echo "verify.sh passed"
