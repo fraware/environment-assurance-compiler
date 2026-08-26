@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from envassure.canonical import canonical_hash, sha256_hex
+from envassure.canonical import canonical_hash
 from envassure.packaging import PACK_MEMBER_PROVENANCE, load_pack, save_pack, verify_pack
 from envassure.runtime import EventSourcedEnvironment
 
@@ -60,7 +60,9 @@ def _runtime_trace(world: Any) -> dict[str, Any]:
                 "observation": result.observation,
                 "state_digest": result.state_digest,
                 "transaction": (
-                    result.transaction.model_dump(mode="json") if result.transaction is not None else None
+                    result.transaction.model_dump(mode="json")
+                    if result.transaction is not None
+                    else None
                 ),
             }
         )
@@ -123,7 +125,9 @@ def build_evidence(output_dir: Path) -> Path:
         "evidence_digest": canonical_hash(stable),
     }
     evidence_path = output_dir / EVIDENCE_NAME
-    evidence_path.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    evidence_path.write_text(
+        json.dumps(evidence, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     return evidence_path
 
 
