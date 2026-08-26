@@ -3,7 +3,7 @@
   "id": "E1",
   "slug": "refund",
   "title": "Support refund workflow",
-  "description": "OpenAPI + SOP + trace conflict on submit_refund timeout/retry/idempotency.",
+  "description": "OpenAPI + SOP + trace evidence exposes one retry-policy conflict plus incomplete timeout/idempotency semantics; E1 compiles only the supported non-timeout path into an EF-0 authoring pack.",
   "status": "contract-complete",
   "requires": {
     "python": ">=3.11",
@@ -20,7 +20,8 @@
   },
   "depends_on_integrations": [],
   "notes": [
-    "run.sh and verify.sh must use eac from an installed wheel.",
-    "Open conflict is intentional; decide before release-grade packs."
+    "Invoke run.sh and verify.sh through bash with eac from an installed wheel.",
+    "Reconciliation must fail with EAC4027; exactly the classic retry-policy conflict remains open, while event observations stay event-scoped and timeout/idempotency execution semantics remain unsupported.",
+    "The scoped model remains EF-0 with live_payment_rail and timeout_retry_idempotency_semantics unsupported; verify-pack proves structural integrity, not high fidelity."
   ]
 }

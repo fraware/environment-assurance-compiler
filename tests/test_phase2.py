@@ -69,6 +69,33 @@ def test_streaming_traces(tmp_path: Path) -> None:
     assert facts
     assert any(f.predicate == "event_count" for f in facts)
 
+    # Per-event observations are facts about trace_event entities, not canonical
+    # action semantics. Each event retains an explicit observed_action link.
+    outcomes = [f for f in facts if f.predicate == "observed_outcome"]
+    assert {f.value for f in outcomes} == {"timeout", "observed_later", "ok"}
+    assert all(f.subject.kind == "trace_event" for f in outcomes)
+    assert all(f.confidence.derivation_class == "observed" for f in outcomes)
+    event_links = [f for f in facts if f.predicate == "observed_action"]
+    assert len(event_links) == 3
+    assert all(f.subject.kind == "trace_event" for f in event_links)
+    assert {f.value for f in event_links} == {"submit_refund"}
+
+    # Safety heuristics are action-level inferences and must never claim direct
+    # extraction from the trace. Only request r-0187-a, which timed out and was
+    # later observed committed, supports the inference; r-0187-b is a separate
+    # request and must not inherit that timeout.
+    retry = [f for f in facts if f.predicate == "retry_behavior"]
+    assert len(retry) == 1
+    assert retry[0].value == "do_not_retry_without_idempotency_key"
+    assert retry[0].subject == EntityRef(kind="action", id="submit_refund")
+    assert retry[0].confidence.derivation_class == "inferred"
+    assert retry[0].source_refs[0].endswith(":2")
+    guards = [f for f in facts if f.predicate == "retry_guard_requirement"]
+    assert len(guards) == 1
+    assert guards[0].value == "idempotency_key"
+    assert guards[0].confidence.derivation_class == "inferred"
+    assert guards[0].source_refs[0].endswith(":2")
+
     # Line-by-line: large file still parses without requiring array load.
     big = tmp_path / "big.jsonl"
     with big.open("w", encoding="utf-8") as handle:
@@ -85,6 +112,69 @@ def test_streaming_traces(tmp_path: Path) -> None:
         pass
 
 
+def test_trace_observations_do_not_become_semantic_conflicts() -> None:
+    path = (
+        Path(__file__).resolve().parents[1] / "examples" / "refund" / "sources" / "trace-0187.jsonl"
+    )
+    facts = TraceAdapter().parse(path)
+    result = reconcile(facts)
+
+    # Heterogeneous empirical outcomes are separate events, not contradictory
+    # action definitions. The reconciler must therefore emit no EAC2002 for them.
+    assert not any(d.code == "EAC2002" for d in result.diagnostics.diagnostics)
+    assert not any(a.conflict_class == "semantic_conflict" for a in result.ambiguities)
+    accepted_outcomes = [f for f in result.accepted_facts if f.predicate == "observed_outcome"]
+    assert {f.value for f in accepted_outcomes} == {"timeout", "observed_later", "ok"}
+    assert all(f.subject.kind == "trace_event" for f in accepted_outcomes)
+
+
+def test_trace_retry_inference_requires_prior_timeout(tmp_path: Path) -> None:
+    ordinary = tmp_path / "ordinary.jsonl"
+    ordinary.write_text(
+        json.dumps(
+            {
+                "action": "submit_refund",
+                "outcome": "ok",
+                "state_effect": "committed",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    ordinary_facts = TraceAdapter().parse(ordinary)
+    assert not any(f.predicate == "retry_behavior" for f in ordinary_facts)
+    assert not any(f.predicate == "retry_guard_requirement" for f in ordinary_facts)
+
+    hazard = tmp_path / "hazard.jsonl"
+    hazard.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "action": "submit_refund",
+                        "outcome": "timeout",
+                        "timeout": True,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "action": "submit_refund",
+                        "outcome": "observed_later",
+                        "state_effect": "committed",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    hazard_facts = TraceAdapter().parse(hazard)
+    inferred = [f for f in hazard_facts if f.predicate == "retry_behavior"]
+    assert len(inferred) == 1
+    assert inferred[0].value == "do_not_retry_without_idempotency_key"
+    assert inferred[0].confidence.derivation_class == "inferred"
+
+
 def test_refund_ambiguity_amb_0042() -> None:
     mod = _refund_mod()
     result = mod.reconcile_refund()
@@ -96,6 +186,13 @@ def test_refund_ambiguity_amb_0042() -> None:
     codes = {d.code for d in result.diagnostics.diagnostics}
     assert "EAC2002" in codes
     assert "EAC4027" in codes
+
+    # The classic retry policy disagreement is the semantic conflict. Event
+    # outcomes and mere SOP/trace timeout observations must not manufacture
+    # additional action-level conflicts.
+    conflicts = [a for a in result.ambiguities if a.conflict_class == "semantic_conflict"]
+    assert [a.id for a in conflicts] == [mod.CLASSIC_REFUND_RETRY_AMBIGUITY_ID]
+
     # Conflicted facts are not accepted into authoritative IR.
     assert all(
         f.subject.id != "submit_refund" or f.predicate != "retry_behavior"

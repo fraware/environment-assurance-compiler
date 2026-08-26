@@ -10,12 +10,13 @@ from typer.testing import CliRunner
 
 from envassure.cli.app import app
 from envassure.ir.primitives import origin_kind_for_derivation
-from envassure.reconciliation import reconcile
+from envassure.reconciliation import ambiguity_id, reconcile
 from envassure.sources import import_source_report
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures" / "importers"
 _REPO = Path(__file__).resolve().parents[1]
 _REFUND_SOURCES = _REPO / "examples" / "refund" / "sources"
+_REFUND_INPUT = _REPO / "examples" / "refund" / "input"
 
 _FAIL_CLOSED_CASES = [
     ("openapi", "malformed.yaml", {"EAC1004"}),
@@ -78,11 +79,43 @@ def test_importer_conflicting_openapi_procedure_reconcile() -> None:
     )
     assert not openapi_report.has_errors()
     assert not procedure_report.has_errors()
+
+    openapi_retry = [f for f in openapi_facts if f.predicate == "retry_behavior"]
+    procedure_retry = [f for f in procedure_facts if f.predicate == "retry_behavior"]
+    assert len(openapi_retry) == 1
+    assert openapi_retry[0].value == "retry_requires_status_check"
+    assert openapi_retry[0].confidence.derivation_class == "inferred"
+    assert len(procedure_retry) == 1
+    assert procedure_retry[0].value == "retry_on_timeout"
+    assert procedure_retry[0].confidence.derivation_class == "inferred"
+
     result = reconcile([*openapi_facts, *procedure_facts])
     codes = {d.code for d in result.diagnostics.diagnostics}
     assert "EAC2002" in codes
+    expected_id = ambiguity_id("action:submit_refund", "retry_behavior", "conflict")
+    retry_ambiguity = next(amb for amb in result.unresolved_ambiguities if amb.id == expected_id)
+    assert retry_ambiguity.subject == "action:submit_refund"
+    assert retry_ambiguity.conflict_class == "semantic_conflict"
+    assert any(
+        "retry_requires_status_check" in value
+        for value in retry_ambiguity.candidate_interpretations
+    )
+    assert any("retry_on_timeout" in value for value in retry_ambiguity.candidate_interpretations)
+    assert retry_ambiguity.provenance.origin_kind == "unresolved_conflict"
     for amb in result.unresolved_ambiguities:
         assert amb.provenance.origin_kind == "unresolved_conflict"
+
+
+def test_openapi_unspecified_retry_language_does_not_invent_policy() -> None:
+    facts, report = import_source_report("openapi", _REFUND_INPUT / "api.yaml")
+    assert not report.has_errors()
+    assert not [f for f in facts if f.predicate == "retry_behavior"]
+
+    timeout = [f for f in facts if f.predicate == "timeout_behavior"]
+    assert len(timeout) == 1
+    assert timeout[0].value == "http_504_timeout_response"
+    assert timeout[0].confidence.derivation_class == "inferred"
+    assert "no server-side state semantics are inferred" in (timeout[0].confidence.notes or "")
 
 
 def test_importer_conflicting_policy_reconcile() -> None:
@@ -106,7 +139,7 @@ def test_importer_conflicting_traces_with_openapi_reconcile() -> None:
     trace_facts, report = import_source_report("traces", _fixture("traces", "conflicting.jsonl"))
     assert not report.has_errors()
     result = reconcile([*openapi_facts, *trace_facts])
-    # Traces observe commit-after-timeout vs OpenAPI unknown/no-retry posture.
+    # Explicit OpenAPI retry policy may conflict with trace-derived safety evidence.
     codes = {d.code for d in result.diagnostics.diagnostics}
     assert "EAC2002" in codes or result.unresolved_ambiguities
 
@@ -131,10 +164,13 @@ def test_inferred_facts_never_claim_direct(kind: str, name: str) -> None:
         assert origin_kind_for_derivation(fact.confidence.derivation_class) != "source_derived"
     for fact in observed:
         assert fact.confidence.derivation_class != "direct"
-    # OpenAPI timeout hints and procedure SOP heuristics must be inferred, not direct.
+    # OpenAPI timeout/retry prose and procedure SOP heuristics must be inferred, not direct.
     if kind == "openapi" and any(f.predicate == "timeout_behavior" for f in facts):
         timeout = next(f for f in facts if f.predicate == "timeout_behavior")
         assert timeout.confidence.derivation_class == "inferred"
+    if kind == "openapi" and any(f.predicate == "retry_behavior" for f in facts):
+        retry = next(f for f in facts if f.predicate == "retry_behavior")
+        assert retry.confidence.derivation_class == "inferred"
     if kind == "procedure" and any(f.predicate == "retry_behavior" for f in facts):
         retry = next(f for f in facts if f.predicate == "retry_behavior")
         assert retry.confidence.derivation_class == "inferred"

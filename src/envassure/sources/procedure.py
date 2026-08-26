@@ -16,7 +16,13 @@ _IDEMPOTENCY_HINT = re.compile(r"\bidempoten", re.IGNORECASE)
 
 
 class ProcedureAdapter:
-    """Parse markdown SOP headings/sections into procedure facts."""
+    """Parse markdown SOP headings/sections into procedure facts.
+
+    Operational instructions that express an actual policy (for example,
+    ``retry_on_timeout``) use canonical action predicates. Mere mentions of a
+    timeout or idempotency are evidence-layer facts and are deliberately kept
+    separate from canonical ``timeout_behavior`` / ``idempotency`` semantics.
+    """
 
     kind = "procedure"
 
@@ -115,20 +121,24 @@ class ProcedureAdapter:
                             fact_id=make_fact_id(
                                 subject_kind="action",
                                 subject_id=action_id,
-                                predicate="timeout_behavior",
+                                predicate="procedure_timeout_acknowledgement",
                                 source=source,
                             ),
                             subject=action,
-                            predicate="timeout_behavior",
-                            value="sop_acknowledges_timeout",
+                            predicate="procedure_timeout_acknowledgement",
+                            value=True,
                             source_refs=[source],
                             extraction_method="markdown.sop.timeout",
                             confidence=ConfidenceRecord(
                                 evidence_class="approved_procedure",
                                 derivation_class="inferred",
                                 extractor_certainty="low",
+                                notes=(
+                                    "SOP text mentions timeout handling; this is not a "
+                                    "canonical timeout_behavior definition."
+                                ),
                             ),
-                            kind_tags=["action", "timeout", "procedure"],
+                            kind_tags=["action", "timeout", "procedure", "mention"],
                         )
                     )
                 if _IDEMPOTENCY_HINT.search(combined):
@@ -137,20 +147,24 @@ class ProcedureAdapter:
                             fact_id=make_fact_id(
                                 subject_kind="action",
                                 subject_id=action_id,
-                                predicate="idempotency",
+                                predicate="procedure_idempotency_mention",
                                 source=source,
                             ),
                             subject=action,
-                            predicate="idempotency",
-                            value="sop_mentions_idempotency",
+                            predicate="procedure_idempotency_mention",
+                            value=True,
                             source_refs=[source],
                             extraction_method="markdown.sop.idempotency",
                             confidence=ConfidenceRecord(
                                 evidence_class="approved_procedure",
                                 derivation_class="inferred",
                                 extractor_certainty="low",
+                                notes=(
+                                    "SOP text mentions idempotency; this is not a "
+                                    "canonical idempotency definition."
+                                ),
                             ),
-                            kind_tags=["action", "idempotency", "procedure"],
+                            kind_tags=["action", "idempotency", "procedure", "mention"],
                         )
                     )
         return facts

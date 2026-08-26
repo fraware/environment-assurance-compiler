@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Iterator
 from pathlib import Path
@@ -13,7 +14,13 @@ from envassure.sources.base import SourceParseError
 
 
 class TraceAdapter:
-    """Ingest operational traces line-by-line without loading the whole file."""
+    """Ingest operational traces line-by-line without loading the whole file.
+
+    Per-event observations are represented as ``trace_event`` facts rather than
+    action-level semantic claims. Action-level operational semantics are emitted
+    only when the trace supports an explicit inference (for example, a commit
+    observed after a correlated timeout makes an unconditional retry unsafe).
+    """
 
     kind = "traces"
 
@@ -22,12 +29,13 @@ class TraceAdapter:
             raise SourceParseError(path, "file not found")
         facts: list[SemanticFact] = []
         source = str(path)
-        confidence = ConfidenceRecord(
+        observed_confidence = ConfidenceRecord(
             evidence_class="operational_trace",
             derivation_class="observed",
             extractor_certainty="medium",
         )
         event_count = 0
+        timed_out_attempts: set[tuple[str, str | None]] = set()
         for line_no, event in _iter_jsonl(path):
             event_count += 1
             facts.extend(
@@ -35,7 +43,8 @@ class TraceAdapter:
                     event=event,
                     line_no=line_no,
                     source=source,
-                    confidence=confidence,
+                    observed_confidence=observed_confidence,
+                    timed_out_attempts=timed_out_attempts,
                 )
             )
         if event_count == 0:
@@ -54,7 +63,7 @@ class TraceAdapter:
                 value=event_count,
                 source_refs=[source],
                 extraction_method="traces.jsonl.stream",
-                confidence=confidence,
+                confidence=observed_confidence,
                 kind_tags=["trace", "operational"],
             )
         )
@@ -77,123 +86,188 @@ def _iter_jsonl(path: Path) -> Iterator[tuple[int, dict[str, Any]]]:
             yield line_no, payload
 
 
+def _trace_event_id(*, source: str, line_no: int) -> str:
+    """Return a stable-in-workspace id for one source event without exposing its path."""
+    source_key = hashlib.sha256(source.encode("utf-8")).hexdigest()[:12]
+    return f"{source_key}:{line_no}"
+
+
+def _attempt_correlation(event: dict[str, Any]) -> str | None:
+    """Return an explicit attempt correlation id when the trace provides one.
+
+    We intentionally do not synthesize correlation across separately identified
+    requests. When no correlation field exists, ``None`` permits only the weaker
+    within-action temporal heuristic for traces that genuinely lack identifiers.
+    """
+    for key in ("request_id", "correlation_id", "trace_id", "span_id"):
+        value = event.get(key)
+        if isinstance(value, str) and value.strip():
+            return f"{key}:{value.strip()}"
+    return None
+
+
 def _facts_from_event(
     *,
     event: dict[str, Any],
     line_no: int,
     source: str,
-    confidence: ConfidenceRecord,
+    observed_confidence: ConfidenceRecord,
+    timed_out_attempts: set[tuple[str, str | None]],
 ) -> list[SemanticFact]:
     facts: list[SemanticFact] = []
     action_id = event.get("action") or event.get("action_id") or event.get("op")
-    if isinstance(action_id, str) and action_id.strip():
-        subject = EntityRef(kind="action", id=action_id.strip())
-        outcome = event.get("outcome") or event.get("status") or event.get("result")
-        if outcome is not None:
-            facts.append(
-                SemanticFact(
-                    fact_id=make_fact_id(
-                        subject_kind="action",
-                        subject_id=subject.id,
-                        predicate="observed_outcome",
-                        source=source,
-                        suffix=str(line_no),
-                    ),
-                    subject=subject,
+    if not isinstance(action_id, str) or not action_id.strip():
+        return facts
+
+    action = EntityRef(kind="action", id=action_id.strip())
+    event_subject = EntityRef(
+        kind="trace_event",
+        id=_trace_event_id(source=source, line_no=line_no),
+    )
+    event_source_ref = f"{source}:{line_no}"
+    attempt = (action.id, _attempt_correlation(event))
+
+    # Link the event to the action explicitly. Observations belong to this event,
+    # not to the action's canonical semantic definition.
+    facts.append(
+        SemanticFact(
+            fact_id=make_fact_id(
+                subject_kind=event_subject.kind,
+                subject_id=event_subject.id,
+                predicate="observed_action",
+                source=source,
+                suffix=str(line_no),
+            ),
+            subject=event_subject,
+            predicate="observed_action",
+            value=action.id,
+            source_refs=[event_source_ref],
+            extraction_method="traces.jsonl.event",
+            confidence=observed_confidence,
+            kind_tags=["trace_event", "action", "operational"],
+        )
+    )
+
+    outcome = event.get("outcome") or event.get("status") or event.get("result")
+    if outcome is not None:
+        facts.append(
+            SemanticFact(
+                fact_id=make_fact_id(
+                    subject_kind=event_subject.kind,
+                    subject_id=event_subject.id,
                     predicate="observed_outcome",
-                    value=outcome,
-                    source_refs=[f"{source}:{line_no}"],
-                    extraction_method="traces.jsonl.event",
-                    confidence=confidence,
-                    kind_tags=["action", "operational", "trace"],
-                )
+                    source=source,
+                    suffix=str(line_no),
+                ),
+                subject=event_subject,
+                predicate="observed_outcome",
+                value=outcome,
+                source_refs=[event_source_ref],
+                extraction_method="traces.jsonl.event",
+                confidence=observed_confidence,
+                kind_tags=["trace_event", "outcome", "operational"],
             )
-        # Timeout then commit pattern — critical for refund conflict demo.
-        if event.get("timeout") is True or str(outcome).lower() in {
-            "timeout",
-            "gateway_timeout",
-            "504",
+        )
+
+    is_timeout = event.get("timeout") is True or str(outcome).lower() in {
+        "timeout",
+        "gateway_timeout",
+        "504",
+    }
+    if is_timeout:
+        timed_out_attempts.add(attempt)
+        facts.append(
+            SemanticFact(
+                fact_id=make_fact_id(
+                    subject_kind=event_subject.kind,
+                    subject_id=event_subject.id,
+                    predicate="observed_timeout",
+                    source=source,
+                    suffix=str(line_no),
+                ),
+                subject=event_subject,
+                predicate="observed_timeout",
+                value=True,
+                source_refs=[event_source_ref],
+                extraction_method="traces.jsonl.timeout",
+                confidence=observed_confidence,
+                kind_tags=["trace_event", "timeout", "operational"],
+            )
+        )
+
+    state_effect = event.get("state_effect") or event.get("authoritative_state")
+    if state_effect is not None:
+        facts.append(
+            SemanticFact(
+                fact_id=make_fact_id(
+                    subject_kind=event_subject.kind,
+                    subject_id=event_subject.id,
+                    predicate="observed_state_effect",
+                    source=source,
+                    suffix=str(line_no),
+                ),
+                subject=event_subject,
+                predicate="observed_state_effect",
+                value=state_effect,
+                source_refs=[event_source_ref],
+                extraction_method="traces.jsonl.state",
+                confidence=observed_confidence,
+                kind_tags=["trace_event", "state", "operational"],
+            )
+        )
+
+        # A commit correlated to a prior timeout supports a safety inference
+        # about retry policy. A separately identified later request must not
+        # inherit the timeout merely because it has the same action id.
+        if attempt in timed_out_attempts and str(state_effect).lower() in {
+            "committed",
+            "refund_committed",
+            "applied",
         }:
             facts.append(
                 SemanticFact(
                     fact_id=make_fact_id(
                         subject_kind="action",
-                        subject_id=subject.id,
-                        predicate="timeout_behavior",
+                        subject_id=action.id,
+                        predicate="retry_behavior",
                         source=source,
-                        suffix=f"obs:{line_no}",
+                        suffix=f"unsafe:{line_no}",
                     ),
-                    subject=subject,
-                    predicate="timeout_behavior",
-                    value="observed_timeout",
-                    source_refs=[f"{source}:{line_no}"],
-                    extraction_method="traces.jsonl.timeout",
-                    confidence=confidence,
-                    kind_tags=["action", "timeout", "trace"],
+                    subject=action,
+                    predicate="retry_behavior",
+                    value="do_not_retry_without_idempotency_key",
+                    source_refs=[event_source_ref],
+                    extraction_method="traces.jsonl.retry_inference",
+                    confidence=ConfidenceRecord(
+                        evidence_class="operational_trace",
+                        derivation_class="inferred",
+                        extractor_certainty="medium",
+                        notes="commit observed after a correlated timeout",
+                    ),
+                    kind_tags=["action", "retry", "trace", "inferred"],
                 )
             )
-        state_effect = event.get("state_effect") or event.get("authoritative_state")
-        if state_effect is not None:
             facts.append(
                 SemanticFact(
                     fact_id=make_fact_id(
                         subject_kind="action",
-                        subject_id=subject.id,
-                        predicate="observed_state_effect",
+                        subject_id=action.id,
+                        predicate="retry_guard_requirement",
                         source=source,
                         suffix=str(line_no),
                     ),
-                    subject=subject,
-                    predicate="observed_state_effect",
-                    value=state_effect,
-                    source_refs=[f"{source}:{line_no}"],
-                    extraction_method="traces.jsonl.state",
-                    confidence=confidence,
-                    kind_tags=["action", "state", "trace"],
+                    subject=action,
+                    predicate="retry_guard_requirement",
+                    value="idempotency_key",
+                    source_refs=[event_source_ref],
+                    extraction_method="traces.jsonl.idempotency_inference",
+                    confidence=ConfidenceRecord(
+                        evidence_class="operational_trace",
+                        derivation_class="inferred",
+                        extractor_certainty="low",
+                        notes="guard inferred from commit after a correlated timeout",
+                    ),
+                    kind_tags=["action", "idempotency", "trace", "inferred"],
                 )
             )
-            # Committed after timeout → retry may double-apply.
-            if str(state_effect).lower() in {"committed", "refund_committed", "applied"}:
-                facts.append(
-                    SemanticFact(
-                        fact_id=make_fact_id(
-                            subject_kind="action",
-                            subject_id=subject.id,
-                            predicate="retry_behavior",
-                            source=source,
-                            suffix=f"unsafe:{line_no}",
-                        ),
-                        subject=subject,
-                        predicate="retry_behavior",
-                        value="unsafe_without_idempotency_key",
-                        source_refs=[f"{source}:{line_no}"],
-                        extraction_method="traces.jsonl.retry_inference",
-                        confidence=ConfidenceRecord(
-                            evidence_class="operational_trace",
-                            extractor_certainty="medium",
-                        ),
-                        kind_tags=["action", "retry", "trace"],
-                    )
-                )
-                facts.append(
-                    SemanticFact(
-                        fact_id=make_fact_id(
-                            subject_kind="action",
-                            subject_id=subject.id,
-                            predicate="idempotency",
-                            source=source,
-                            suffix=str(line_no),
-                        ),
-                        subject=subject,
-                        predicate="idempotency",
-                        value="required_but_unspecified",
-                        source_refs=[f"{source}:{line_no}"],
-                        extraction_method="traces.jsonl.idempotency_inference",
-                        confidence=ConfidenceRecord(
-                            evidence_class="operational_trace",
-                            extractor_certainty="low",
-                        ),
-                        kind_tags=["action", "idempotency", "trace"],
-                    )
-                )
     return facts
