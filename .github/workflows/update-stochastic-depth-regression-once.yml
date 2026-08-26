@@ -1,0 +1,59 @@
+name: One-shot stochastic depth regression update
+
+on:
+  push:
+    branches: [assurance/p0-stochastic-equivalence]
+    paths:
+      - ".github/workflows/update-stochastic-depth-regression-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: assurance/p0-stochastic-equivalence
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Update stale point-estimate regression
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tests/test_depth_limits.py")
+          text = path.read_text(encoding="utf-8")
+          old = '''    # 40 paired agreements → within margin.
+    agree = [(True, True)] * 20 + [(False, False)] * 20
+'''
+          new = '''    # With finite-sample uncertainty, 100 concordant pairs are sufficient
+    # for the conservative 95% paired rate-difference interval to fit ±0.05.
+    agree = [(True, True)] * 50 + [(False, False)] * 50
+'''
+          if text.count(old) != 1:
+              raise SystemExit("unexpected stochastic depth-test agreement fixture")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+      - name: Validate focused statistical regression
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          ruff check tests/test_depth_limits.py tests/test_stochastic_equivalence.py
+          ruff format --check tests/test_depth_limits.py tests/test_stochastic_equivalence.py
+          pytest -q \
+            tests/test_depth_limits.py::test_differential_paired_stochastic_respects_equivalence_margin \
+            tests/test_stochastic_equivalence.py
+      - name: Commit regression correction
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name "repo-maintenance"
+          git config user.email "repo-maintenance@users.noreply.github.com"
+          git add tests/test_depth_limits.py
+          git diff --cached --quiet && exit 1
+          git commit -m "test(differential): require powered stochastic equivalence"
+          git push origin HEAD:assurance/p0-stochastic-equivalence
