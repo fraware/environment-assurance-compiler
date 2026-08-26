@@ -1,4 +1,4 @@
-name: One-shot reproducible pack serializer patch
+name: One-shot reproducibility quality cleanup
 
 on:
   push:
@@ -12,6 +12,8 @@ permissions:
 jobs:
   apply:
     runs-on: ubuntu-latest
+    env:
+      SOURCE_DATE_EPOCH: "1704067200"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -19,22 +21,32 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Apply guarded serializer patch
-        run: echo 'ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCgpwYXRoID0gUGF0aCgic3JjL2VudmFzc3VyZS9wYWNrYWdpbmcvX19pbml0X18ucHkiKQp0ZXh0ID0gcGF0aC5yZWFkX3RleHQoZW5jb2Rpbmc9InV0Zi04IikKCm9sZCA9ICJpbXBvcnQganNvblxuaW1wb3J0IHJlXG5pbXBvcnQgemlwZmlsZVxuIgpuZXcgPSAiaW1wb3J0IGpzb25cbmltcG9ydCBvc1xuaW1wb3J0IHJlXG5pbXBvcnQgemlwZmlsZVxuIgppZiB0ZXh0LmNvdW50KG9sZCkgIT0gMToKICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJ1bmV4cGVjdGVkIGltcG9ydCBhbmNob3IgY291bnQ6IHt0ZXh0LmNvdW50KG9sZCl9IikKdGV4dCA9IHRleHQucmVwbGFjZShvbGQsIG5ldywgMSkKCmFuY2hvciA9ICdkZWYgX2pzb25fYnl0ZXMocGF5bG9hZDogZGljdFtzdHIsIEFueV0gfCBsaXN0W0FueV0pIC0+IGJ5dGVzOlxuICAgIHJldHVybiAoanNvbi5kdW1wcyhwYXlsb2FkLCBpbmRlbnQ9MikgKyAiXFxuIikuZW5jb2RlKCJ1dGYtOCIpXG5cblxuJwphZGRpdGlvbiA9ICcnJ2RlZiBfanNvbl9ieXRlcyhwYXlsb2FkOiBkaWN0W3N0ciwgQW55XSB8IGxpc3RbQW55XSkgLT4gYnl0ZXM6CiAgICByZXR1cm4gKGpzb24uZHVtcHMocGF5bG9hZCwgaW5kZW50PTIpICsgIlxcbiIpLmVuY29kZSgidXRmLTgiKQoKCl9SRVBST0RVQ0lCTEVfWklQX0RBVEVfVElNRSA9ICgxOTgwLCAxLCAxLCAwLCAwLCAwKQoKCmRlZiBfc291cmNlX2RhdGVfZXBvY2goKSAtPiBpbnQgfCBOb25lOgogICAgIiIiUmV0dXJuIGEgdmFsaWRhdGVkIFNPVVJDRV9EQVRFX0VQT0NILCBvciBOb25lIGZvciBvcmRpbmFyeSBidWlsZHMuIiIiCiAgICByYXcgPSBvcy5lbnZpcm9uLmdldCgiU09VUkNFX0RBVEVfRVBPQ0giKQogICAgaWYgcmF3IGlzIE5vbmU6CiAgICAgICAgcmV0dXJuIE5vbmUKICAgIHRyeToKICAgICAgICBlcG9jaCA9IGludChyYXcpCiAgICBleGNlcHQgVmFsdWVFcnJvciBhcyBleGM6CiAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigiU09VUkNFX0RBVEVfRVBPQ0ggbXVzdCBiZSBhIG5vbi1uZWdhdGl2ZSBpbnRlZ2VyIikgZnJvbSBleGMKICAgIGlmIGVwb2NoIDwgMDoKICAgICAgICByYWlzZSBWYWx1ZUVycm9yKCJTT1VSQ0VfREFURV9FUE9DSCBtdXN0IGJlIGEgbm9uLW5lZ2F0aXZlIGludGVnZXIiKQogICAgcmV0dXJuIGVwb2NoCgoKZGVmIF9jcmVhdGVkX2F0X2Zvcl9lcG9jaChlcG9jaDogaW50IHwgTm9uZSkgLT4gc3RyOgogICAgaWYgZXBvY2ggaXMgTm9uZToKICAgICAgICByZXR1cm4gZGF0ZXRpbWUubm93KFVUQykuaXNvZm9ybWF0KCkKICAgIHRyeToKICAgICAgICByZXR1cm4gZGF0ZXRpbWUuZnJvbXRpbWVzdGFtcChlcG9jaCwgVVRDKS5pc29mb3JtYXQoKQogICAgZXhjZXB0IChPdmVyZmxvd0Vycm9yLCBPU0Vycm9yLCBWYWx1ZUVycm9yKSBhcyBleGM6CiAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigiU09VUkNFX0RBVEVfRVBPQ0ggaXMgb3V0c2lkZSB0aGUgc3VwcG9ydGVkIGRhdGV0aW1lIHJhbmdlIikgZnJvbSBleGMKCgpkZWYgX3dyaXRlX3JlcHJvZHVjaWJsZV96aXBfbWVtYmVyKHpmOiB6aXBmaWxlLlppcEZpbGUsIHJlbDogc3RyLCBkYXRhOiBieXRlcykgLT4gTm9uZToKICAgICIiIldyaXRlIG9uZSBaSVAgbWVtYmVyIHdpdGggbm9ybWFsaXplZCBtZXRhZGF0YSBhbmQgbm8gY29tcHJlc3NvciB2YXJpYW5jZS4iIiIKICAgIGluZm8gPSB6aXBmaWxlLlppcEluZm8ocmVsLCBkYXRlX3RpbWU9X1JFUFJPRFVDSUJMRV9aSVBfREFURV9USU1FKQogICAgaW5mby5jb21wcmVzc190eXBlID0gemlwZmlsZS5aSVBfU1RPUkVECiAgICBpbmZvLmNyZWF0ZV9zeXN0ZW0gPSAzCiAgICBpbmZvLmV4dGVybmFsX2F0dHIgPSAwbzEwMDY0NCA8PCAxNgogICAgaW5mby5pbnRlcm5hbF9hdHRyID0gMAogICAgaW5mby5leHRyYSA9IGIiIgogICAgaW5mby5jb21tZW50ID0gYiIiCiAgICB6Zi53cml0ZXN0cihpbmZvLCBkYXRhKQoKCicnJwppZiB0ZXh0LmNvdW50KGFuY2hvcikgIT0gMToKICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJ1bmV4cGVjdGVkIGpzb24gaGVscGVyIGFuY2hvciBjb3VudDoge3RleHQuY291bnQoYW5jaG9yKX0iKQp0ZXh0ID0gdGV4dC5yZXBsYWNlKGFuY2hvciwgYWRkaXRpb24sIDEpCgpvbGQgPSAnJycgICAgbWFuaWZlc3QgPSBQYWNrTWFuaWZlc3QoCiAgICAgICAgZW52aXJvbm1lbnRfaWQ9d29ybGQuZW52aXJvbm1lbnRfaWQsCiAgICAgICAgZW52aXJvbm1lbnRfdmVyc2lvbj13b3JsZC52ZXJzaW9uLAogICAgICAgIGlyX3ZlcnNpb249d29ybGQuaXJfdmVyc2lvbiwKICAgICAgICBydW50aW1lX3ZlcnNpb249cnVudGltZV92ZXJzaW9uIG9yIFBBQ0tBR0VfVkVSU0lPTiwKICAgICAgICBwb2xpY3lfdmVyc2lvbj1wb2xpY3lfdmVyc2lvbiBvciBwb2xpY3lfdmVyc2lvbl9mb3Jfd29ybGQod29ybGQpLAogICAgICAgIGNyZWF0ZWRfYXQ9ZGF0ZXRpbWUubm93KFVUQykuaXNvZm9ybWF0KCksCiAgICAgICAgZmlsZXM9ZmlsZXMsCiAgICAgICAgbWV0YWRhdGE9bWV0YSwKICAgICkKJycnCm5ldyA9ICcnJyAgICBzb3VyY2VfZGF0ZV9lcG9jaCA9IF9zb3VyY2VfZGF0ZV9lcG9jaCgpCiAgICBtYW5pZmVzdCA9IFBhY2tNYW5pZmVzdCgKICAgICAgICBlbnZpcm9ubWVudF9pZD13b3JsZC5lbnZpcm9ubWVudF9pZCwKICAgICAgICBlbnZpcm9ubWVudF92ZXJzaW9uPXdvcmxkLnZlcnNpb24sCiAgICAgICAgaXJfdmVyc2lvbj13b3JsZC5pcl92ZXJzaW9uLAogICAgICAgIHJ1bnRpbWVfdmVyc2lvbj1ydW50aW1lX3ZlcnNpb24gb3IgUEFDS0FHRV9WRVJTSU9OLAogICAgICAgIHBvbGljeV92ZXJzaW9uPXBvbGljeV92ZXJzaW9uIG9yIHBvbGljeV92ZXJzaW9uX2Zvcl93b3JsZCh3b3JsZCksCiAgICAgICAgY3JlYXRlZF9hdD1fY3JlYXRlZF9hdF9mb3JfZXBvY2goc291cmNlX2RhdGVfZXBvY2gpLAogICAgICAgIGZpbGVzPWZpbGVzLAogICAgICAgIG1ldGFkYXRhPW1ldGEsCiAgICApCicnJwppZiB0ZXh0LmNvdW50KG9sZCkgIT0gMToKICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJ1bmV4cGVjdGVkIG1hbmlmZXN0IGFuY2hvciBjb3VudDoge3RleHQuY291bnQob2xkKX0iKQp0ZXh0ID0gdGV4dC5yZXBsYWNlKG9sZCwgbmV3LCAxKQoKb2xkID0gJycnICAgIHBhdGgucGFyZW50Lm1rZGlyKHBhcmVudHM9VHJ1ZSwgZXhpc3Rfb2s9VHJ1ZSkKICAgIHdpdGggemlwZmlsZS5aaXBGaWxlKHBhdGgsICJ3IiwgY29tcHJlc3Npb249emlwZmlsZS5aSVBfREVGTEFURUQpIGFzIHpmOgogICAgICAgIHpmLndyaXRlc3RyKFBBQ0tfTUVNQkVSX01BTklGRVNULCBtYW5pZmVzdF9ieXRlcykKICAgICAgICBmb3IgcmVsLCBkYXRhIGluIHNvcnRlZChtZW1iZXJzLml0ZW1zKCkpOgogICAgICAgICAgICBfYXNzZXJ0X3NhZmVfbWVtYmVyKHJlbCkKICAgICAgICAgICAgemYud3JpdGVzdHIocmVsLCBkYXRhKQogICAgcmV0dXJuIG1hbmlmZXN0CicnJwpuZXcgPSAnJycgICAgcGF0aC5wYXJlbnQubWtkaXIocGFyZW50cz1UcnVlLCBleGlzdF9vaz1UcnVlKQogICAgaWYgc291cmNlX2RhdGVfZXBvY2ggaXMgTm9uZToKICAgICAgICB3aXRoIHppcGZpbGUuWmlwRmlsZShwYXRoLCAidyIsIGNvbXByZXNzaW9uPXppcGZpbGUuWklQX0RFRkxBVEVEKSBhcyB6ZjoKICAgICAgICAgICAgemYud3JpdGVzdHIoUEFDS19NRU1CRVJfTUFOSUZFU1QsIG1hbmlmZXN0X2J5dGVzKQogICAgICAgICAgICBmb3IgcmVsLCBkYXRhIGluIHNvcnRlZChtZW1iZXJzLml0ZW1zKCkpOgogICAgICAgICAgICAgICAgX2Fzc2VydF9zYWZlX21lbWJlcihyZWwpCiAgICAgICAgICAgICAgICB6Zi53cml0ZXN0cihyZWwsIGRhdGEpCiAgICBlbHNlOgogICAgICAgICMgUmVwcm9kdWNpYmxlIG1vZGUgZGVsaWJlcmF0ZWx5IHVzZXMgWklQX1NUT1JFRC4gRGVmbGF0ZSBvdXRwdXQgY2FuIHZhcnkKICAgICAgICAjIHdpdGggdGhlIGxpbmtlZCB6bGliIGltcGxlbWVudGF0aW9uIGV2ZW4gd2hlbiBsb2dpY2FsIGNvbnRlbnRzIG1hdGNoLgogICAgICAgIHdpdGggemlwZmlsZS5aaXBGaWxlKHBhdGgsICJ3IiwgY29tcHJlc3Npb249emlwZmlsZS5aSVBfU1RPUkVEKSBhcyB6ZjoKICAgICAgICAgICAgX3dyaXRlX3JlcHJvZHVjaWJsZV96aXBfbWVtYmVyKHpmLCBQQUNLX01FTUJFUl9NQU5JRkVTVCwgbWFuaWZlc3RfYnl0ZXMpCiAgICAgICAgICAgIGZvciByZWwsIGRhdGEgaW4gc29ydGVkKG1lbWJlcnMuaXRlbXMoKSk6CiAgICAgICAgICAgICAgICBfYXNzZXJ0X3NhZmVfbWVtYmVyKHJlbCkKICAgICAgICAgICAgICAgIF93cml0ZV9yZXByb2R1Y2libGVfemlwX21lbWJlcih6ZiwgcmVsLCBkYXRhKQogICAgcmV0dXJuIG1hbmlmZXN0CicnJwppZiB0ZXh0LmNvdW50KG9sZCkgIT0gMToKICAgIHJhaXNlIFN5c3RlbUV4aXQoZiJ1bmV4cGVjdGVkIHppcCB3cml0ZXIgYW5jaG9yIGNvdW50OiB7dGV4dC5jb3VudChvbGQpfSIpCnRleHQgPSB0ZXh0LnJlcGxhY2Uob2xkLCBuZXcsIDEpCgpwYXRoLndyaXRlX3RleHQodGV4dCwgZW5jb2Rpbmc9InV0Zi04IikK' | base64 -d | python
-      - name: Validate focused reproducibility tests
+      - name: Clean and format reproducibility implementation
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("scripts/cross_python_reproducibility.py")
+          text = path.read_text(encoding="utf-8")
+          old = "from envassure.canonical import canonical_hash, sha256_hex\n"
+          new = "from envassure.canonical import canonical_hash\n"
+          if text.count(old) != 1:
+              raise SystemExit(f"unexpected canonical import anchor: {text.count(old)}")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-          ruff check src/envassure/packaging/__init__.py tests/test_reproducible_pack.py
-          ruff format --check src/envassure/packaging/__init__.py tests/test_reproducible_pack.py
+          ruff format src/envassure/packaging/__init__.py scripts/cross_python_reproducibility.py tests/test_reproducible_pack.py
+          ruff check src/envassure/packaging/__init__.py scripts/cross_python_reproducibility.py tests/test_reproducible_pack.py
           pytest -q tests/test_reproducible_pack.py tests/test_pack_adversarial.py
-      - name: Commit serializer patch
+          python scripts/cross_python_reproducibility.py build --output-dir /tmp/repro-evidence
+          eac pack verify /tmp/repro-evidence/counter-reproducibility.eap --json
+      - name: Commit quality cleanup
         run: |
           set -euo pipefail
           git diff --check
           git config user.name "repo-maintenance"
           git config user.email "repo-maintenance@users.noreply.github.com"
-          git add src/envassure/packaging/__init__.py
+          git add src/envassure/packaging/__init__.py scripts/cross_python_reproducibility.py tests/test_reproducible_pack.py
           git diff --cached --quiet && exit 1
-          git commit -m "feat(pack): support reproducible SOURCE_DATE_EPOCH archives"
+          git commit -m "test(reproducibility): validate canonical evidence build"
           git push origin HEAD:assurance/reproducibility-py311-py312
