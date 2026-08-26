@@ -44,10 +44,7 @@ def test_perfect_concordance_at_small_n_does_not_collapse_uncertainty() -> None:
 
 def test_point_estimate_equality_does_not_prove_equivalence() -> None:
     samples = (
-        [(True, False)] * 10
-        + [(False, True)] * 10
-        + [(True, True)] * 40
-        + [(False, False)] * 40
+        [(True, False)] * 10 + [(False, True)] * 10 + [(True, True)] * 40 + [(False, False)] * 40
     )
     verdict = _statistical_success(
         samples,

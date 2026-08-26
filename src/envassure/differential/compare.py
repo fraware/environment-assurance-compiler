@@ -333,11 +333,7 @@ def _binomial_probability_sum(
     log_q = log1p(-p)
     log_n_factorial = lgamma(n + 1)
     log_terms = [
-        log_n_factorial
-        - lgamma(k + 1)
-        - lgamma(n - k + 1)
-        + k * log_p
-        + (n - k) * log_q
+        log_n_factorial - lgamma(k + 1) - lgamma(n - k + 1) + k * log_p + (n - k) * log_q
         for k in range(start, stop + 1)
     ]
     max_log = max(log_terms)
@@ -588,6 +584,7 @@ def _statistical_success(
         confidence_note=note,
         detail="paired confidence interval overlaps declared equivalence margin",
     )
+
 
 def _mapping_verdict(
     left: dict[str, Any],
