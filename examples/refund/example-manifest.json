@@ -3,7 +3,7 @@
   "id": "E1",
   "slug": "refund",
   "title": "Support refund workflow",
-  "description": "OpenAPI + SOP + trace evidence is reconciled fail-closed, explicitly decided, then compiled into an EF-0 executable authoring pack.",
+  "description": "OpenAPI + SOP + trace conflicts fail closed; E1 compiles only the non-conflicted path into an EF-0 executable authoring pack.",
   "status": "contract-complete",
   "requires": {
     "python": ">=3.11",
@@ -21,7 +21,7 @@
   "depends_on_integrations": [],
   "notes": [
     "Invoke run.sh and verify.sh through bash with eac from an installed wheel.",
-    "Pre-decision reconciliation must fail with EAC4027; the example records an explicit example-author decision before build/lint/run.",
-    "The decided model remains EF-0 with live_payment_rail unsupported; verify-pack proves structural integrity, not high fidelity."
+    "Reconciliation must fail with EAC4027; timeout/retry/idempotency conflicts remain open and are excluded from executable IR rather than silently decided.",
+    "The scoped model remains EF-0 with live_payment_rail and timeout_retry_idempotency_semantics unsupported; verify-pack proves structural integrity, not high fidelity."
   ]
 }
