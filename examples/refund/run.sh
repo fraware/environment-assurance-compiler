@@ -36,7 +36,7 @@ eac import procedure "${WORKSPACE}/sources/refund-sop.md" \
 eac import traces "${WORKSPACE}/sources/trace-0187.jsonl" \
   --path "${WORKSPACE}" --merge --json > "${OUT_DIR}/import-traces.json"
 
-echo "==> reconcile (EAC4027 is expected; conflicted semantics must not be projected)"
+echo "==> reconcile (EAC4027 is expected; unresolved retry policy must not be projected)"
 set +e
 eac facts --path "${WORKSPACE}" --reconcile --json > "${OUT_DIR}/reconcile.json"
 RECONCILE_RC=$?
@@ -65,10 +65,16 @@ records = ambiguities if isinstance(ambiguities, list) else ambiguities.get("amb
 assert payload["ok"] is False, payload
 assert payload["exit_code"] != 0, payload
 assert any(d["code"] == "EAC4027" for d in payload["diagnostics"]), payload["diagnostics"]
-classic = next(a for a in records if a["id"] == classic_id)
+conflicts = [
+    a
+    for a in records
+    if a["subject"] == "action:submit_refund" and a["conflict_class"] == "semantic_conflict"
+]
+assert len(conflicts) == 1, conflicts
+classic = conflicts[0]
+assert classic["id"] == classic_id, classic
 assert classic["status"] == "open", classic
 assert classic["subject"] == "action:submit_refund", classic
-assert classic["conflict_class"] == "semantic_conflict", classic
 print("expected pre-projection failure:", classic_id)
 for ambiguity in records:
     print(
@@ -81,12 +87,12 @@ for ambiguity in records:
     )
 PY
 
-# The scoped template refuses to build if the classic source conflict is not
-# still open. It omits all disputed timeout/retry/idempotency predicates instead
-# of inventing a winner.
+# The scoped template refuses to build if the classic retry-policy conflict is
+# not still open. It omits timeout/retry/idempotency execution semantics rather
+# than inventing authoritative behavior from incomplete or conflicting evidence.
 cp "${ROOT}/scoped_world.py" "${WORKSPACE}/world.py"
 
-echo "==> build typed IR scoped to non-conflicted semantics"
+echo "==> build typed IR scoped to supported non-timeout semantics"
 eac build-ir --path "${WORKSPACE}" --force --json > "${OUT_DIR}/build-ir.json"
 
 echo "==> lint executable semantics"
@@ -113,7 +119,7 @@ assert payload["final_state"]["refund_status"] == "committed", payload["final_st
 print("runtime step ok")
 PY
 
-echo "==> package authoring-profile .eap (EF-0; disputed and external paths unsupported)"
+echo "==> package authoring-profile .eap (EF-0; unresolved and external paths unsupported)"
 eac package "${IR_PATH}" \
   -o "${PACK_PATH}" \
   --profile authoring \
