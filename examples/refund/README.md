@@ -46,11 +46,13 @@ example-manifest.json
 ```
 
 `run.sh` / `verify.sh` require `eac` on `PATH` from an **installed wheel** rather
-than an editable checkout. From the repository root after `pip install dist/*.whl`:
+than an editable checkout. Invoke them through `bash` so the documented path does
+not depend on executable-bit preservation in a checkout. From the repository root
+after `pip install dist/*.whl`:
 
 ```bash
-./examples/refund/run.sh
-./examples/refund/verify.sh
+bash examples/refund/run.sh
+bash examples/refund/verify.sh
 ```
 
 `run.sh` performs the following executable path:
