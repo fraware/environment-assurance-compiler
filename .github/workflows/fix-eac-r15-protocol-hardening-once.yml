@@ -1,0 +1,216 @@
+name: One-shot EAC-R15 protocol hardening
+
+on:
+  push:
+    branches: [assurance/eac-r15-protocol]
+    paths:
+      - ".github/workflows/fix-eac-r15-protocol-hardening-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: assurance/eac-r15-protocol
+
+      - name: Harden preregistration immutability and method binding
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/envassure/benchmark/qualification.py")
+          text = path.read_text(encoding="utf-8")
+
+          old = '''class StochasticAnalysisRegistration(BaseModel):
+              """Preregistered stochastic-equivalence method for the stochastic family."""
+
+              model_config = ConfigDict(extra="forbid", frozen=True)
+
+              method: Literal["paired_mean_difference_ci", "exact_paired_equivalence"]
+              alpha: float = Field(gt=0.0, lt=1.0)
+              equivalence_margin: float = Field(gt=0.0, lt=1.0)
+              minimum_samples: int = Field(ge=MIN_HELDOUT_PROBES_PER_FAMILY)
+              assumptions: tuple[str, ...] = Field(min_length=1)
+          '''.replace("              ", "")
+          new = '''class StochasticAnalysisRegistration(BaseModel):
+              """Exact preregistration binding for the stochastic-family analysis."""
+
+              model_config = ConfigDict(extra="forbid", frozen=True)
+
+              method_id: str = Field(min_length=1)
+              method_document_digest: str
+              alpha: float = Field(gt=0.0, lt=1.0)
+              equivalence_margin: float = Field(gt=0.0, lt=1.0)
+              minimum_samples: int = Field(ge=MIN_HELDOUT_PROBES_PER_FAMILY)
+              assumptions: tuple[str, ...] = Field(min_length=1)
+
+              @field_validator("method_id")
+              @classmethod
+              def _method_identifier(cls, value: str) -> str:
+                  identifier = value.strip()
+                  if not identifier:
+                      raise ValueError("method_id must be non-empty after trimming")
+                  return identifier
+
+              @field_validator("method_document_digest")
+              @classmethod
+              def _method_digest(cls, value: str, info: Any) -> str:
+                  return _sha256(value, field=info.field_name)
+
+              @field_validator("assumptions")
+              @classmethod
+              def _assumptions(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+                  cleaned = tuple(item.strip() for item in value)
+                  if any(not item for item in cleaned):
+                      raise ValueError("assumptions must contain only non-empty strings")
+                  if len(set(cleaned)) != len(cleaned):
+                      raise ValueError("assumptions must not contain duplicates")
+                  return cleaned
+          '''.replace("              ", "")
+          if text.count(old) != 1:
+              raise SystemExit("expected exactly one stochastic registration block")
+          text = text.replace(old, new, 1)
+
+          old = '    metadata: dict[str, Any] = Field(default_factory=dict)\n'
+          if text.count(old) != 2:
+              raise SystemExit("expected exactly two mutable metadata fields")
+          text = text.replace(old, '    metadata_digest: str | None = None\n', 2)
+
+          old = '''    @field_validator("reference_custodian_commitment", "protocol_document_digest")
+              @classmethod
+              def _root_digest(cls, value: str, info: Any) -> str:
+                  return _sha256(value, field=info.field_name)
+          '''.replace("              ", "")
+          new = old + '''
+              @field_validator("metadata_digest")
+              @classmethod
+              def _optional_registration_digest(cls, value: str | None, info: Any) -> str | None:
+                  if value is None:
+                      return None
+                  return _sha256(value, field=info.field_name)
+          '''.replace("              ", "")
+          if text.count(old) != 1:
+              raise SystemExit("expected registration root-digest validator")
+          text = text.replace(old, new, 1)
+
+          old = '''    @model_validator(mode="after")
+              def _status_consistency(self) -> WorkflowEvidence:
+                  if self.status == "indeterminate" and not self.indeterminate_reasons:
+                      raise ValueError("indeterminate evidence requires at least one reason")
+                  return self
+          '''.replace("              ", "")
+          new = '''    @model_validator(mode="after")
+              def _status_consistency(self) -> WorkflowEvidence:
+                  reasons = tuple(reason.strip() for reason in self.indeterminate_reasons)
+                  if any(not reason for reason in reasons):
+                      raise ValueError("evidence reasons must be non-empty strings")
+                  if len(set(reasons)) != len(reasons):
+                      raise ValueError("evidence reasons must not contain duplicates")
+                  if self.status == "complete" and reasons:
+                      raise ValueError("complete evidence cannot carry indeterminate reasons")
+                  if self.status in {"indeterminate", "invalid"} and not reasons:
+                      raise ValueError(f"{self.status} evidence requires at least one reason")
+                  object.__setattr__(self, "indeterminate_reasons", reasons)
+                  return self
+          '''.replace("              ", "")
+          if text.count(old) != 1:
+              raise SystemExit("expected workflow status validator")
+          text = text.replace(old, new, 1)
+
+          old = '''    @field_validator(
+              "external_custodian_attestation_digest",
+              "independent_reviewer_signoff_digest",
+          )
+          '''.replace("          ", "")
+          new = '''    @field_validator(
+              "external_custodian_attestation_digest",
+              "independent_reviewer_signoff_digest",
+              "metadata_digest",
+          )
+          '''.replace("          ", "")
+          if text.count(old) != 1:
+              raise SystemExit("expected optional evidence digest validator")
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+
+          test_path = Path("tests/test_eac_r15_protocol.py")
+          tests = test_path.read_text(encoding="utf-8")
+          old = '''        stochastic = StochasticAnalysisRegistration(
+              method="paired_mean_difference_ci",
+              alpha=0.05,
+              equivalence_margin=0.05,
+              minimum_samples=100,
+              assumptions=("paired probes are exchangeable within the declared operating regime",),
+          )
+          '''.replace("          ", "")
+          new = '''        stochastic = StochasticAnalysisRegistration(
+              method_id="paired-binary-difference-bonferroni-clopper-pearson-v1",
+              method_document_digest=_digest(9),
+              alpha=0.05,
+              equivalence_margin=0.05,
+              minimum_samples=100,
+              assumptions=("paired probes are exchangeable within the declared operating regime",),
+          )
+          '''.replace("          ", "")
+          if tests.count(old) != 1:
+              raise SystemExit("expected stochastic test fixture")
+          tests = tests.replace(old, new, 1)
+
+          anchor = '''def test_stochastic_family_requires_preregistered_equivalence_method() -> None:
+          '''.replace("          ", "")
+          addition = '''def test_stochastic_registration_binds_exact_method_document() -> None:
+              registration = _registration()
+              stochastic = registration.workflow_registrations[2].stochastic_analysis
+              assert stochastic is not None
+              assert stochastic.method_id == "paired-binary-difference-bonferroni-clopper-pearson-v1"
+              assert stochastic.method_document_digest == _digest(9)
+
+              payload = stochastic.model_dump(mode="json")
+              payload.pop("method_document_digest")
+              with pytest.raises(ValidationError):
+                  StochasticAnalysisRegistration.model_validate(payload)
+
+
+          def test_registration_has_no_mutable_inline_metadata_surface() -> None:
+              registration = _registration()
+              assert registration.metadata_digest is None
+              with pytest.raises(ValidationError, match="frozen"):
+                  registration.metadata_digest = _digest(999)  # type: ignore[misc]
+
+
+          def test_invalid_and_indeterminate_evidence_require_reasons() -> None:
+              registration = _registration()
+              evidence = _workflow_evidence(registration.workflow_registrations[0], 0)
+              payload = evidence.model_dump(mode="json")
+              payload["status"] = "invalid"
+              with pytest.raises(ValidationError, match="requires at least one reason"):
+                  WorkflowEvidence.model_validate(payload)
+
+              payload = evidence.model_dump(mode="json")
+              payload["indeterminate_reasons"] = ["should not accompany complete evidence"]
+              with pytest.raises(ValidationError, match="complete evidence"):
+                  WorkflowEvidence.model_validate(payload)
+
+
+          '''.replace("          ", "")
+          if tests.count(anchor) != 1:
+              raise SystemExit("expected stochastic test anchor")
+          tests = tests.replace(anchor, addition + anchor, 1)
+          test_path.write_text(tests, encoding="utf-8")
+          PY
+
+      - name: Commit protocol hardening
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name "repo-maintenance"
+          git config user.email "repo-maintenance@users.noreply.github.com"
+          git add src/envassure/benchmark/qualification.py tests/test_eac_r15_protocol.py
+          git diff --cached --quiet && exit 1
+          git commit -m "fix(benchmark): harden EAC-R15 preregistration bindings"
+          git push origin HEAD:assurance/eac-r15-protocol
