@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import zipfile
 from datetime import UTC, datetime
@@ -320,6 +321,44 @@ def _json_bytes(payload: dict[str, Any] | list[Any]) -> bytes:
     return (json.dumps(payload, indent=2) + "\n").encode("utf-8")
 
 
+_REPRODUCIBLE_ZIP_DATE_TIME = (1980, 1, 1, 0, 0, 0)
+
+
+def _source_date_epoch() -> int | None:
+    """Return a validated SOURCE_DATE_EPOCH, or None for ordinary builds."""
+    raw = os.environ.get("SOURCE_DATE_EPOCH")
+    if raw is None:
+        return None
+    try:
+        epoch = int(raw)
+    except ValueError as exc:
+        raise ValueError("SOURCE_DATE_EPOCH must be a non-negative integer") from exc
+    if epoch < 0:
+        raise ValueError("SOURCE_DATE_EPOCH must be a non-negative integer")
+    return epoch
+
+
+def _created_at_for_epoch(epoch: int | None) -> str:
+    if epoch is None:
+        return datetime.now(UTC).isoformat()
+    try:
+        return datetime.fromtimestamp(epoch, UTC).isoformat()
+    except (OverflowError, OSError, ValueError) as exc:
+        raise ValueError("SOURCE_DATE_EPOCH is outside the supported datetime range") from exc
+
+
+def _write_reproducible_zip_member(zf: zipfile.ZipFile, rel: str, data: bytes) -> None:
+    """Write one ZIP member with normalized metadata and no compressor variance."""
+    info = zipfile.ZipInfo(rel, date_time=_REPRODUCIBLE_ZIP_DATE_TIME)
+    info.compress_type = zipfile.ZIP_STORED
+    info.create_system = 3
+    info.external_attr = 0o100644 << 16
+    info.internal_attr = 0
+    info.extra = b""
+    info.comment = b""
+    zf.writestr(info, data)
+
+
 def build_pack_files(
     world: WorldDefinition,
     *,
@@ -403,13 +442,14 @@ def save_pack(
     sig_meta = signature_integrity_metadata(members)
     if sig_meta is not None:
         meta["signatures"] = sig_meta
+    source_date_epoch = _source_date_epoch()
     manifest = PackManifest(
         environment_id=world.environment_id,
         environment_version=world.version,
         ir_version=world.ir_version,
         runtime_version=runtime_version or PACKAGE_VERSION,
         policy_version=policy_version or policy_version_for_world(world),
-        created_at=datetime.now(UTC).isoformat(),
+        created_at=_created_at_for_epoch(source_date_epoch),
         files=files,
         metadata=meta,
     )
@@ -417,11 +457,20 @@ def save_pack(
     manifest_bytes = _json_bytes(manifest.model_dump(mode="json"))
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(PACK_MEMBER_MANIFEST, manifest_bytes)
-        for rel, data in sorted(members.items()):
-            _assert_safe_member(rel)
-            zf.writestr(rel, data)
+    if source_date_epoch is None:
+        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(PACK_MEMBER_MANIFEST, manifest_bytes)
+            for rel, data in sorted(members.items()):
+                _assert_safe_member(rel)
+                zf.writestr(rel, data)
+    else:
+        # Reproducible mode deliberately uses ZIP_STORED. Deflate output can vary
+        # with the linked zlib implementation even when logical contents match.
+        with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as zf:
+            _write_reproducible_zip_member(zf, PACK_MEMBER_MANIFEST, manifest_bytes)
+            for rel, data in sorted(members.items()):
+                _assert_safe_member(rel)
+                _write_reproducible_zip_member(zf, rel, data)
     return manifest
 
 
