@@ -1,43 +1,98 @@
 # Reproducibility
 
-Status: **bundle layout and verify-without-checkout are Milestone D**. This page
-states the intended contract so docs IA is complete for the public beta plan.
+EnvAssure maintains two distinct reproducibility surfaces:
 
-## Goals
+1. the published reproducibility bundle, whose recorded member digests can be
+   verified without trusting an editable checkout; and
+2. a cross-Python build study that independently builds the same canonical
+   `.eap` on Python 3.11 and 3.12 and compares byte and semantic evidence.
 
-- Publish a reproducibility bundle with `MANIFEST.json`, expected digests, and
-  hardware / platform records.
-- Provide `reproduce.sh` / `verify.sh` that a second CI job can run after
-  downloading artifacts **without** a source checkout.
-- Keep offline fixtures as the default for PR gates; live connectors remain
-  opt-in.
+Neither surface is evidence of production behavioral parity or EAC-R15
+hidden-reference qualification.
 
-## What exists today
+## Reproducible `.eap` builds
 
-- Example contract scripts under `examples/*/run.sh` and `verify.sh` (E1 refund
-  is the first complete public example).
-- Offline benchmarks and differential fixtures (see
-  [Benchmarks](research/benchmarks.md)).
-- Supply-chain verification notes:
-  [Supply chain](security/supply-chain.md).
+`save_pack` follows the standard `SOURCE_DATE_EPOCH` convention. When the
+variable is unset, ordinary packs retain their real UTC `created_at` timestamp
+and the existing compressed ZIP representation. When it is set to a valid
+non-negative Unix epoch:
 
-## Planned layout (indicative)
+- `manifest.json.created_at` is derived from that epoch in UTC;
+- ZIP member order is deterministic;
+- ZIP member timestamps are normalized to `1980-01-01T00:00:00` (the portable
+  lower bound of the ZIP timestamp representation);
+- member permissions and ZIP metadata are normalized; and
+- members use `ZIP_STORED` rather than DEFLATE so linked-zlib differences cannot
+  change archive bytes.
 
-```text
-reproducibility/
-  MANIFEST.json
-  expected/
-  scripts/reproduce.sh
-  scripts/verify.sh
-  platform-record.json
+The build fails closed if `SOURCE_DATE_EPOCH` is malformed, negative, or outside
+the supported Python datetime range.
+
+For the same EnvAssure source, IR, pack inputs, runtime/policy versions,
+metadata, and `SOURCE_DATE_EPOCH`, the release gate requires the Python 3.11 and
+3.12 `.eap` archives to have the same SHA-256. This is an evidence-backed gate
+for those two supported CI interpreters; it is not a claim about arbitrary
+Python implementations, operating systems, filesystems, or future versions.
+
+## Cross-Python evidence gate
+
+`.github/workflows/cross-python-reproducibility.yml` independently builds the
+canonical counter pack on Python 3.11 and 3.12, verifies each pack, and compares:
+
+- full archive SHA-256;
+- manifest and pack `content_digest`;
+- every manifest member digest and size;
+- embedded provenance and its canonical digest;
+- verifier diagnostics; and
+- a seeded deterministic runtime trace, including events, transaction receipts,
+  observations, final state digest, and audit head.
+
+The comparator is fail-closed. The only intentionally allowed difference is the
+recorded `observed_platform.python_version`. Python implementation, operating
+system, and machine architecture are recorded and must match within this CI
+study; none of those platform observations are embedded into the canonical
+pack.
+
+Run the same study locally with two clean environments by setting the same
+`SOURCE_DATE_EPOCH` and invoking:
+
+```bash
+python scripts/cross_python_reproducibility.py build --output-dir evidence
 ```
 
-Exact paths may land under `reproducibility/` in-tree or as CI-generated
-release assets. Prefer verifying published digests over rebuilding from a dirty
-working tree.
+Then compare the two generated `evidence.json` files:
+
+```bash
+python scripts/cross_python_reproducibility.py compare \
+  py311/evidence.json py312/evidence.json
+```
+
+## Published reproducibility bundle
+
+The repository also ships `reproducibility/` with `MANIFEST.json`, expected
+digests, environment/lock inputs, platform records, `reproduce.sh`, and
+`verify.sh`.
+
+From a full clone:
+
+```bash
+bash reproducibility/reproduce.sh
+```
+
+After extracting a published reproducibility bundle, `bash verify.sh` checks
+recorded member digests without requiring the EnvAssure source checkout.
+
+## Claim boundary
+
+Digest verification proves artifact integrity relative to the recorded
+commitments. Cross-Python equality demonstrates the declared canonical build
+and seeded runtime evidence are reproducible under the tested 3.11/3.12 CI
+environments. Neither establishes independent oracle concealment, scientific
+qualification, deployment validity, or production parity.
 
 ## Related
 
+- [Benchmarks](research/benchmarks.md)
 - [Benchmark packs](packs/benchmark-packs.md)
 - [Package and publish](guides/package-and-publish.md)
 - [Release process](contributing/release-process.md)
