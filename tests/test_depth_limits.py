@@ -298,8 +298,9 @@ def test_differential_paired_stochastic_respects_equivalence_margin() -> None:
         name="stoch",
         determinism="statistical",
     )
-    # 40 paired agreements → within margin.
-    agree = [(True, True)] * 20 + [(False, False)] * 20
+    # With finite-sample uncertainty, 100 concordant pairs are sufficient
+    # for the conservative 95% paired rate-difference interval to fit +/-0.05.
+    agree = [(True, True)] * 50 + [(False, False)] * 50
     ok = compare_outcomes(
         ProbeOutcome(probe_id="s", success=True),
         ProbeOutcome(probe_id="s", success=True),
