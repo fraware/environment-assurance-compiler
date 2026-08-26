@@ -1,9 +1,9 @@
-"""Conflict-scoped E1 refund world template for the public example.
+"""Evidence-scoped E1 refund world template for the public example.
 
 This module is copied into an initialized workspace after source reconciliation.
-It deliberately refuses to project the disputed timeout/retry/idempotency facts.
-The resulting environment is executable only for the modeled non-timeout path;
-all source conflicts remain explicit ambiguity records.
+It deliberately refuses to project unresolved retry policy or incomplete
+ timeout/idempotency semantics. The resulting environment is executable only for
+ the modeled non-timeout path; the classic retry conflict remains explicit.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ CLASSIC_REFUND_RETRY_AMBIGUITY_ID = ambiguity_id(
 
 
 def build_refund_world():
-    """Compile only the non-conflicted subset of the refund semantics."""
+    """Compile only the supported, non-timeout subset of refund semantics."""
     root = Path(__file__).resolve().parent
     ambiguities = load_ambiguities(root / "facts" / "ambiguities.json")
     classic = next(
@@ -40,15 +40,19 @@ def build_refund_world():
         for a in ambiguities
         if a.subject == "action:submit_refund" and a.conflict_class == "semantic_conflict"
     ]
-    if len(action_conflicts) < 1 or any(a.status != "open" for a in action_conflicts):
-        raise RuntimeError("expected unresolved submit_refund semantic conflicts")
+    if [a.id for a in action_conflicts] != [CLASSIC_REFUND_RETRY_AMBIGUITY_ID]:
+        raise RuntimeError(
+            "expected exactly the classic retry-policy semantic conflict; "
+            f"got {[a.id for a in action_conflicts]}"
+        )
 
     world = World(
         environment_id="refund.v1",
         name="Support Refund Workflow",
         description=(
-            "OpenAPI-backed refund workflow scoped to the non-timeout path. "
-            "Conflicted timeout/retry/idempotency semantics are excluded from execution."
+            "OpenAPI-backed refund workflow scoped to the supported non-timeout path. "
+            "Retry policy remains conflicted; timeout authoritative-state and "
+            "idempotency semantics remain incomplete and are excluded from execution."
         ),
         domain="support",
     )
@@ -105,8 +109,8 @@ def build_refund_world():
             ],
             origin_kind="inferred",
             notes=(
-                "non-timeout executable projection only; conflicted operational "
-                "predicates remain unresolved and are excluded"
+                "non-timeout executable projection only; retry policy is conflicted "
+                "and timeout/idempotency evidence is insufficient for execution"
             ),
         ),
     )
