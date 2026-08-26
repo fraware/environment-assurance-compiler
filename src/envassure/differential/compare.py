@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from math import sqrt
-from typing import Any
+from math import exp, fsum, lgamma, log, log1p
+from statistics import NormalDist
+from typing import Any, Callable
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -41,8 +42,9 @@ class ComparisonTolerances(BaseModel):
     numeric_abs: float = 1e-6
     numeric_rel: float = 1e-3
     stochastic_min_samples: int = 30
-    # Critical value for the paired mean-difference confidence interval.
-    # 1.96 corresponds approximately to a two-sided 95% interval.
+    # Backward-compatible confidence-level control. The value is converted
+    # to a two-sided nominal alpha for exact binomial bounds; it is not used
+    # as a Wald multiplier. 1.96 corresponds approximately to 95%.
     stochastic_z: float = 1.96
     # Declared absolute rate-difference margin for stochastic equivalence.
     equivalence_margin: float | None = 0.05
@@ -312,41 +314,179 @@ def _compare_dimension(
     return DimensionVerdict(dimension=dim, status=VerdictStatus.NOT_APPLICABLE)
 
 
+def _binomial_probability_sum(
+    start: int,
+    stop: int,
+    n: int,
+    p: float,
+) -> float:
+    """Return a numerically stable sum of Binomial(n, p) probabilities."""
+    if start > stop:
+        return 0.0
+    if p <= 0.0:
+        return 1.0 if start <= 0 <= stop else 0.0
+    if p >= 1.0:
+        return 1.0 if start <= n <= stop else 0.0
+
+    log_p = log(p)
+    log_q = log1p(-p)
+    log_n_factorial = lgamma(n + 1)
+    log_terms = [
+        log_n_factorial
+        - lgamma(k + 1)
+        - lgamma(n - k + 1)
+        + k * log_p
+        + (n - k) * log_q
+        for k in range(start, stop + 1)
+    ]
+    max_log = max(log_terms)
+    total = exp(max_log) * fsum(exp(value - max_log) for value in log_terms)
+    return min(1.0, total)
+
+
+def _binomial_cdf(k: int, n: int, p: float) -> float:
+    """Binomial CDF, summing the numerically smaller tail when possible."""
+    if k < 0:
+        return 0.0
+    if k >= n:
+        return 1.0
+    if k < n * p:
+        return _binomial_probability_sum(0, k, n, p)
+    upper = _binomial_probability_sum(k + 1, n, n, p)
+    return max(0.0, 1.0 - upper)
+
+
+def _binomial_upper_tail(k: int, n: int, p: float) -> float:
+    """P[X >= k] for X ~ Binomial(n, p), with stable tail selection."""
+    if k <= 0:
+        return 1.0
+    if k > n:
+        return 0.0
+    if k > n * p:
+        return _binomial_probability_sum(k, n, n, p)
+    lower = _binomial_probability_sum(0, k - 1, n, p)
+    return max(0.0, 1.0 - lower)
+
+
+def _solve_probability(
+    target: float,
+    fn: Callable[[float], float],
+    *,
+    increasing: bool,
+) -> float:
+    """Invert a monotone probability function on [0, 1] by bisection."""
+    lower = 0.0
+    upper = 1.0
+    for _ in range(70):
+        midpoint = (lower + upper) / 2.0
+        value = fn(midpoint)
+        if increasing:
+            if value < target:
+                lower = midpoint
+            else:
+                upper = midpoint
+        elif value > target:
+            lower = midpoint
+        else:
+            upper = midpoint
+    return (lower + upper) / 2.0
+
+
+def _clopper_pearson_interval(
+    successes: int,
+    n: int,
+    *,
+    alpha: float,
+) -> tuple[float, float]:
+    """Equal-tailed Clopper-Pearson interval for a binomial proportion."""
+    if n <= 0:
+        raise ValueError("n must be positive")
+    if not 0 <= successes <= n:
+        raise ValueError("successes must be between 0 and n")
+    if not 0.0 < alpha < 1.0:
+        raise ValueError("alpha must be in (0, 1)")
+
+    tail = alpha / 2.0
+    lower = (
+        0.0
+        if successes == 0
+        else _solve_probability(
+            tail,
+            lambda p: _binomial_upper_tail(successes, n, p),
+            increasing=True,
+        )
+    )
+    upper = (
+        1.0
+        if successes == n
+        else _solve_probability(
+            tail,
+            lambda p: _binomial_cdf(successes, n, p),
+            increasing=False,
+        )
+    )
+    return lower, upper
+
+
 def _paired_rate_difference_ci(
     samples: list[tuple[bool, bool]],
     *,
     z: float,
 ) -> tuple[float, float, float, float]:
-    """Asymptotic paired CI for candidate-minus-reference success probability.
+    """Conservative finite-sample CI for candidate-minus-reference success.
 
-    Each paired observation contributes -1, 0, or +1. The variance is therefore
-    estimated on the paired differences themselves, preserving pairing instead
-    of treating the two success rates as independent samples.
+    For paired binary outcomes, only discordant cells determine the marginal
+    success-rate difference: ``delta = p01 - p10``. Each discordant-cell
+    probability is a binomial marginal of the four-cell multinomial table.
+    We compute Clopper-Pearson intervals for both probabilities and allocate
+    half of the total error budget to each interval. Bonferroni therefore
+    gives simultaneous coverage of at least ``1 - alpha``; subtracting the
+    simultaneous bounds yields a conservative interval for ``delta``.
 
-    Returns ``(difference, lower, upper, standard_error)``.
+    ``z`` is retained for configuration compatibility and converted to the
+    corresponding two-sided nominal alpha. It is not used as a Wald
+    multiplier.
+
+    Returns ``(difference, lower, upper, nominal_alpha)``.
     """
     n = len(samples)
-    diffs = [float(candidate) - float(reference) for reference, candidate in samples]
-    difference = sum(diffs) / n
-    if n <= 1:
-        return difference, float("-inf"), float("inf"), float("inf")
-    variance = sum((value - difference) ** 2 for value in diffs) / (n - 1)
-    standard_error = sqrt(max(variance, 0.0) / n)
-    half_width = z * standard_error
-    return difference, difference - half_width, difference + half_width, standard_error
+    if n <= 0:
+        raise ValueError("paired samples must be non-empty")
+    nominal_alpha = 2.0 * (1.0 - NormalDist().cdf(z))
+    if not 0.0 < nominal_alpha < 1.0:
+        raise ValueError("stochastic_z does not define a finite confidence level")
+
+    ref_only = sum(1 for reference, candidate in samples if reference and not candidate)
+    cand_only = sum(1 for reference, candidate in samples if not reference and candidate)
+
+    marginal_alpha = nominal_alpha / 2.0
+    ref_lower, ref_upper = _clopper_pearson_interval(
+        ref_only,
+        n,
+        alpha=marginal_alpha,
+    )
+    cand_lower, cand_upper = _clopper_pearson_interval(
+        cand_only,
+        n,
+        alpha=marginal_alpha,
+    )
+
+    difference = (cand_only - ref_only) / n
+    lower = max(-1.0, cand_lower - ref_upper)
+    upper = min(1.0, cand_upper - ref_lower)
+    return difference, lower, upper, nominal_alpha
 
 
 def _statistical_success(
     samples: list[tuple[bool, bool]],
     tol: ComparisonTolerances,
 ) -> DimensionVerdict:
-    """Evaluate paired binary equivalence without using non-rejection as proof.
+    """Evaluate paired binary equivalence without non-rejection-as-proof.
 
-    A match requires the entire paired confidence interval for the
-    candidate-minus-reference success-rate difference to lie inside the
-    preregistered equivalence margin. If the interval overlaps a margin, the
-    result is indeterminate. A mismatch is reported only when the entire
-    interval is beyond one equivalence boundary.
+    A match requires the entire conservative finite-sample confidence
+    interval for the candidate-minus-reference success-rate difference to
+    lie inside the preregistered equivalence margin. An interval wholly
+    beyond a margin is a mismatch; overlap is indeterminate.
     """
     n = len(samples)
     if tol.equivalence_margin is None:
@@ -388,17 +528,28 @@ def _statistical_success(
 
     ref_rate = sum(1 for reference, _ in samples if reference) / n
     cand_rate = sum(1 for _, candidate in samples if candidate) / n
-    difference, lower, upper, standard_error = _paired_rate_difference_ci(
-        samples,
-        z=tol.stochastic_z,
-    )
+    try:
+        difference, lower, upper, nominal_alpha = _paired_rate_difference_ci(
+            samples,
+            z=tol.stochastic_z,
+        )
+    except ValueError as exc:
+        return DimensionVerdict(
+            dimension=ComparisonDimension.SUCCESS,
+            status=VerdictStatus.INDETERMINATE,
+            statistical=True,
+            confidence_note=str(exc),
+            detail="invalid_confidence_critical_value",
+        )
+
     margin = tol.equivalence_margin
     discordant = sum(1 for reference, candidate in samples if reference != candidate)
+    confidence = 1.0 - nominal_alpha
     note = (
         f"n={n} ref_rate={ref_rate:.3f} cand_rate={cand_rate:.3f} "
         f"delta(cand-ref)={difference:.4f} paired_ci=[{lower:.4f},{upper:.4f}] "
-        f"margin=[{-margin:.4f},{margin:.4f}] se={standard_error:.4f} "
-        f"z={tol.stochastic_z:.3f} discordant={discordant}"
+        f"margin=[{-margin:.4f},{margin:.4f}] confidence={confidence:.5f} "
+        f"method=bonferroni-clopper-pearson discordant={discordant}"
     )
 
     if lower >= -margin and upper <= margin:
@@ -410,8 +561,6 @@ def _statistical_success(
             detail="paired confidence interval contained in declared equivalence region",
         )
 
-    # Only call a mismatch when the confidence interval is wholly outside the
-    # declared equivalence region. Overlap is insufficient evidence either way.
     if lower > margin or upper < -margin:
         return DimensionVerdict(
             dimension=ComparisonDimension.SUCCESS,
@@ -428,7 +577,6 @@ def _statistical_success(
         confidence_note=note,
         detail="paired confidence interval overlaps declared equivalence margin",
     )
-
 
 def _mapping_verdict(
     left: dict[str, Any],

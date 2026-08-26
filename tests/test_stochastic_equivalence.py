@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from envassure.differential.compare import (
     ComparisonTolerances,
     VerdictStatus,
@@ -10,21 +12,42 @@ from envassure.differential.compare import (
 )
 
 
-def test_identical_paired_samples_establish_equivalence() -> None:
+def test_identical_paired_samples_establish_equivalence_with_nonzero_uncertainty() -> None:
     samples = [(i % 2 == 0, i % 2 == 0) for i in range(100)]
+    difference, lower, upper, _alpha = _paired_rate_difference_ci(samples, z=1.96)
+    assert difference == 0.0
+    assert lower < 0.0 < upper
+    assert lower >= -0.05
+    assert upper <= 0.05
+
     verdict = _statistical_success(
         samples,
         ComparisonTolerances(stochastic_min_samples=30, equivalence_margin=0.05),
     )
     assert verdict.status is VerdictStatus.MATCH
-    assert "paired_ci=[0.0000,0.0000]" in (verdict.confidence_note or "")
+    assert "method=bonferroni-clopper-pearson" in (verdict.confidence_note or "")
+
+
+def test_perfect_concordance_at_small_n_does_not_collapse_uncertainty() -> None:
+    samples = [(True, True)] * 30
+    difference, lower, upper, _alpha = _paired_rate_difference_ci(samples, z=1.96)
+    assert difference == 0.0
+    assert lower < -0.05
+    assert upper > 0.05
+
+    verdict = _statistical_success(
+        samples,
+        ComparisonTolerances(stochastic_min_samples=30, equivalence_margin=0.05),
+    )
+    assert verdict.status is VerdictStatus.INDETERMINATE
 
 
 def test_point_estimate_equality_does_not_prove_equivalence() -> None:
-    # Equal aggregate rates but substantial paired discordance. The point
-    # estimate is zero, yet uncertainty is wider than the +/-5% margin.
     samples = (
-        [(True, False)] * 10 + [(False, True)] * 10 + [(True, True)] * 40 + [(False, False)] * 40
+        [(True, False)] * 10
+        + [(False, True)] * 10
+        + [(True, True)] * 40
+        + [(False, False)] * 40
     )
     verdict = _statistical_success(
         samples,
@@ -35,9 +58,9 @@ def test_point_estimate_equality_does_not_prove_equivalence() -> None:
 
 
 def test_small_well_estimated_difference_can_establish_equivalence() -> None:
-    samples = [(False, True)] * 4 + [(True, True)] * 98 + [(False, False)] * 98
-    difference, lower, upper, _se = _paired_rate_difference_ci(samples, z=1.96)
-    assert difference == 0.02
+    samples = [(False, True)] * 2 + [(True, True)] * 99 + [(False, False)] * 99
+    difference, lower, upper, _alpha = _paired_rate_difference_ci(samples, z=1.96)
+    assert difference == pytest.approx(0.01)
     assert lower >= -0.05
     assert upper <= 0.05
 
