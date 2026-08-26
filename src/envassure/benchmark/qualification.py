@@ -287,7 +287,10 @@ class WorkflowEvidence(BaseModel):
             raise ValueError(
                 "stochastic_operational evidence requires analysis_method_document_digest"
             )
-        if self.family != "stochastic_operational" and self.analysis_method_document_digest is not None:
+        if (
+            self.family != "stochastic_operational"
+            and self.analysis_method_document_digest is not None
+        ):
             raise ValueError(
                 "analysis_method_document_digest is only valid for stochastic_operational"
             )
