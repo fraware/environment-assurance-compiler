@@ -88,3 +88,37 @@ def test_underpowered_equivalence_is_indeterminate() -> None:
     )
     assert verdict.status is VerdictStatus.INDETERMINATE
     assert verdict.detail == "insufficient_samples"
+
+
+def test_vacuous_binary_equivalence_margin_is_indeterminate() -> None:
+    samples = [(True, True)] * 100
+    verdict = _statistical_success(
+        samples,
+        ComparisonTolerances(stochastic_min_samples=30, equivalence_margin=1.0),
+    )
+    assert verdict.status is VerdictStatus.INDETERMINATE
+    assert verdict.detail == "invalid_equivalence_margin"
+
+
+def test_nonpositive_minimum_sample_configuration_is_indeterminate() -> None:
+    samples = [(True, True)] * 100
+    verdict = _statistical_success(
+        samples,
+        ComparisonTolerances(stochastic_min_samples=0, equivalence_margin=0.05),
+    )
+    assert verdict.status is VerdictStatus.INDETERMINATE
+    assert verdict.detail == "invalid_minimum_samples"
+
+
+def test_nan_confidence_configuration_is_indeterminate() -> None:
+    samples = [(True, True)] * 100
+    verdict = _statistical_success(
+        samples,
+        ComparisonTolerances(
+            stochastic_min_samples=30,
+            stochastic_z=float("nan"),
+            equivalence_margin=0.05,
+        ),
+    )
+    assert verdict.status is VerdictStatus.INDETERMINATE
+    assert verdict.detail == "invalid_confidence_critical_value"
