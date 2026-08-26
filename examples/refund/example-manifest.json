@@ -3,7 +3,7 @@
   "id": "E1",
   "slug": "refund",
   "title": "Support refund workflow",
-  "description": "OpenAPI + SOP + trace conflict on submit_refund timeout/retry/idempotency.",
+  "description": "OpenAPI + SOP + trace conflict on submit_refund timeout/retry/idempotency, exercised as an EF-0 authoring pack.",
   "status": "contract-complete",
   "requires": {
     "python": ">=3.11",
@@ -21,6 +21,7 @@
   "depends_on_integrations": [],
   "notes": [
     "run.sh and verify.sh must use eac from an installed wheel.",
-    "Open conflict is intentional; decide before release-grade packs."
+    "run.sh lints, executes one non-timeout action, packages with the authoring profile, and verifies the resulting .eap.",
+    "The timeout/retry/idempotency conflict remains intentionally open; verify-pack proves structural integrity, not high fidelity."
   ]
 }
