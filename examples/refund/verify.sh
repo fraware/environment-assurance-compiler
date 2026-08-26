@@ -55,6 +55,7 @@ import json
 import sys
 from pathlib import Path
 
+from envassure.facts.store import FactStore
 from envassure.fidelity import FidelityLedger
 from envassure.ir.io import load_world
 from envassure.packaging import (
@@ -73,13 +74,14 @@ workspace = Path(sys.argv[3])
 expected = json.loads((root / "expected" / "ambiguity.json").read_text(encoding="utf-8"))
 classic = expected["classic_retry_ambiguity"]
 classic_id = ambiguity_id("action:submit_refund", "retry_behavior", "conflict")
-timeout_id = ambiguity_id("action:submit_refund", "timeout_behavior", "conflict")
+old_outcome_conflict_id = ambiguity_id("action:submit_refund", "observed_outcome", "conflict")
+old_timeout_conflict_id = ambiguity_id("action:submit_refund", "timeout_behavior", "conflict")
 assert classic["fixture_alias"] == "AMB-0042"
 assert classic["subject"] == "action:submit_refund"
 assert classic["aspect"] == "retry_behavior"
 
-# Reconciliation must fail closed on the conflicted operational semantics while
-# still persisting ambiguity records for review.
+# Reconciliation must fail closed on the unresolved retry policy while still
+# persisting the ambiguity for review.
 reconcile_payload = json.loads((out / "reconcile.json").read_text(encoding="utf-8"))
 assert reconcile_payload["ok"] is False, reconcile_payload
 assert reconcile_payload["exit_code"] != 0, reconcile_payload
@@ -91,13 +93,16 @@ action_conflicts = [
     for a in ambiguities
     if a.subject == "action:submit_refund" and a.conflict_class == "semantic_conflict"
 ]
-assert len(action_conflicts) == 3, [a.model_dump(mode="json") for a in action_conflicts]
-assert all(a.status == "open" for a in action_conflicts)
-assert {classic_id, timeout_id} <= {a.id for a in action_conflicts}
-assert all(a.decision_id is None for a in action_conflicts)
+assert [a.id for a in action_conflicts] == [classic_id], [
+    a.model_dump(mode="json") for a in action_conflicts
+]
+assert action_conflicts[0].status == "open"
+assert action_conflicts[0].decision_id is None
+assert old_outcome_conflict_id not in {a.id for a in ambiguities}
+assert old_timeout_conflict_id not in {a.id for a in ambiguities}
 
 # This public contract must not smuggle in a decision artifact to make the
-# conflicts disappear. The scoped model compiles by excluding disputed fields.
+# conflict disappear. The scoped model compiles by excluding unsupported fields.
 assert not list((workspace / "decisions").glob("*.json"))
 
 # The imported source files are the actual public inputs, byte for byte.
@@ -108,6 +113,55 @@ for name in ("import-openapi.json", "import-procedure.json", "import-traces.json
     payload = json.loads((out / name).read_text(encoding="utf-8"))
     assert payload["ok"] is True, (name, payload)
     assert payload["imported_count"] > 0, (name, payload)
+
+# Audit the fact ontology itself, not only the downstream ambiguity count.
+facts = FactStore.load(workspace / "facts" / "imported.json").list()
+observed_outcomes = [f for f in facts if f.predicate == "observed_outcome"]
+assert {f.value for f in observed_outcomes} == {"timeout", "observed_later", "ok"}
+assert all(f.subject.kind == "trace_event" for f in observed_outcomes)
+assert all(f.confidence.derivation_class == "observed" for f in observed_outcomes)
+observed_actions = [f for f in facts if f.predicate == "observed_action"]
+assert len(observed_actions) == 3
+assert {f.value for f in observed_actions} == {"submit_refund"}
+assert all(f.subject.kind == "trace_event" for f in observed_actions)
+
+# Only the API contract supplies a canonical timeout_behavior candidate. SOP and
+# trace timeout evidence are represented as acknowledgement/observations instead
+# of false alternative definitions of the same canonical field.
+timeout_facts = [
+    f
+    for f in facts
+    if f.subject.kind == "action"
+    and f.subject.id == "submit_refund"
+    and f.predicate == "timeout_behavior"
+]
+assert len(timeout_facts) == 1, [f.model_dump(mode="json") for f in timeout_facts]
+assert timeout_facts[0].confidence.evidence_class == "api_contract"
+assert timeout_facts[0].confidence.derivation_class == "inferred"
+assert any(f.predicate == "procedure_timeout_acknowledgement" for f in facts)
+assert any(f.predicate == "observed_timeout" for f in facts)
+
+# The retry disagreement remains real at the policy layer: the SOP instructs an
+# unconditional retry, while the trace supports an inferred safety prohibition
+# unless an idempotency key is used. Both heuristics must be labeled inferred.
+retry_facts = [
+    f
+    for f in facts
+    if f.subject.kind == "action"
+    and f.subject.id == "submit_refund"
+    and f.predicate == "retry_behavior"
+]
+assert {f.value for f in retry_facts} == {
+    "retry_on_timeout",
+    "do_not_retry_without_idempotency_key",
+}
+assert all(f.confidence.derivation_class == "inferred" for f in retry_facts)
+assert any(
+    f.predicate == "retry_guard_requirement"
+    and f.value == "idempotency_key"
+    and f.confidence.derivation_class == "inferred"
+    for f in facts
+)
 
 for name in ("build-ir.json", "lint.json"):
     payload = json.loads((out / name).read_text(encoding="utf-8"))
@@ -150,8 +204,9 @@ world_conflicts = [
     for a in world.ambiguities
     if a.subject == "action:submit_refund" and a.conflict_class == "semantic_conflict"
 ]
-assert {a.id for a in world_conflicts} == {a.id for a in action_conflicts}
-assert all(a.status == "open" and a.decision_id is None for a in world_conflicts)
+assert [a.id for a in world_conflicts] == [classic_id]
+assert world_conflicts[0].status == "open"
+assert world_conflicts[0].decision_id is None
 
 run_payload = json.loads((out / "run.json").read_text(encoding="utf-8"))
 assert run_payload["ok"] is True
