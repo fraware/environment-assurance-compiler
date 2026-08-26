@@ -32,7 +32,7 @@ jobs:
       - name: Build canonical pack and evidence
         run: python scripts/cross_python_reproducibility.py build --output-dir cross-python
       - name: Verify pack independently
-        run: eac pack verify cross-python/counter-reproducibility.eap --json
+        run: eac verify-pack cross-python/counter-reproducibility.eap --json
       - uses: actions/upload-artifact@v4
         with:
           name: cross-python-${{ matrix.python }}
