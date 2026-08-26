@@ -1,8 +1,8 @@
 # Supply chain — SBOM and release provenance
 
 **Status:** Living document  
-**Scope:** CI dependency audit, CycloneDX SBOM generation, and GitHub
-build-provenance attestations for EnvAssure distributions  
+**Scope:** CI dependency audit, immutable automation dependencies, CycloneDX SBOM
+generation, and GitHub build-provenance attestations for EnvAssure distributions  
 **Repository:** [fraware/environment-assurance-compiler](https://github.com/fraware/environment-assurance-compiler)
 
 ## What CI enforces
@@ -17,6 +17,7 @@ build-provenance attestations for EnvAssure distributions
 | MkDocs strict | `CI` → `docs` / `Docs` | **Blocking** |
 | Counter E2E + pack secret scan | `CI` → `counter-e2e` | **Blocking** |
 | Schema / fixture JSON | `CI` → `schemas` | **Blocking** |
+| Immutable remote workflow refs | `CI` → `schemas` (`check_workflow_action_pins.py`) | **Blocking** |
 | Gitleaks | `Security` → `secret-scan` | **Blocking** |
 | `pip-audit` on installed runtime deps | `Security` → `dependency-audit` | **Blocking** |
 | CodeQL (same-repo only) | `Security` → `codeql` | **Blocking** |
@@ -24,6 +25,34 @@ build-provenance attestations for EnvAssure distributions
 | CycloneDX SBOM preview artifact | `CI` → `sbom-preview` | **Advisory** (`continue-on-error`) |
 | Signed tag → build → TestPyPI/PyPI/GHCR | `Release` | **Blocking** on `v*` / dispatch |
 | Dry-run build + acceptance | `Test release` | **Blocking** on PR/main |
+
+### CI/CD dependency integrity
+
+Remote GitHub Actions are referenced by exact 40-character commit SHA, with a
+human-readable release/major comment next to each pin. A branch or tag such as
+`@v4`, `@main`, or `@release/v1` is not accepted by the repository policy because
+its target can move without changing this repository. Repository-local
+`./...` actions and reusable workflows are tied to the checked-out revision.
+Container actions, if introduced through `docker://`, must use an explicit
+`@sha256:<digest>` image reference.
+
+`scripts/check_workflow_action_pins.py` scans every YAML file under
+`.github/workflows/` and fails blocking CI on a mutable or malformed remote
+`uses:` reference. Its regression tests cover exact commit pins, mutable tags,
+local actions, missing refs, and container digest rules.
+
+`.github/dependabot.yml` checks the `github-actions` ecosystem weekly. Updating a
+pin therefore requires an explicit repository change and normal review/CI rather
+than inheriting an upstream tag mutation invisibly. Pinning is not a claim that an
+upstream Action is intrinsically trustworthy; it makes the exact dependency
+reviewable, reproducible, and auditable.
+
+Direct executable downloads follow the same fail-closed principle. OPA and
+Gitleaks are version-pinned and checked against repository-pinned SHA-256 digests
+before execution; downloads use bounded connection/transfer time and retries.
+Changing a version requires changing its expected digest in the same reviewed
+repository history. A versioned URL by itself is not treated as an integrity
+control.
 
 Coverage floors (measured 2026-07-25, branch coverage):
 
@@ -86,9 +115,10 @@ Compare the release asset digest to your local rebuild when auditing a tag.
 
 The `Release` workflow uses GitHub OIDC and
 [`actions/attest-build-provenance`](https://github.com/actions/attest-build-provenance)
-to attest wheels, sdists, and SBOM files. Attestations are stored in the
-repository’s **Attestations** UI (GitHub Artifact Attestations) and can be
-verified with the GitHub CLI without a separate Sigstore key ceremony.
+to attest wheels, sdists, and SBOM files. The Action itself is commit-pinned in
+the workflow. Attestations are stored in the repository’s **Attestations** UI
+(GitHub Artifact Attestations) and can be verified with the GitHub CLI without a
+separate Sigstore key ceremony.
 
 ### Verify provenance
 
