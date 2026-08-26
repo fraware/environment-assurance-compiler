@@ -19,7 +19,7 @@ class TraceAdapter:
     Per-event observations are represented as ``trace_event`` facts rather than
     action-level semantic claims. Action-level operational semantics are emitted
     only when the trace supports an explicit inference (for example, a commit
-    observed after a timeout makes an unconditional retry unsafe).
+    observed after a correlated timeout makes an unconditional retry unsafe).
     """
 
     kind = "traces"
@@ -35,7 +35,7 @@ class TraceAdapter:
             extractor_certainty="medium",
         )
         event_count = 0
-        timed_out_actions: set[str] = set()
+        timed_out_attempts: set[tuple[str, str | None]] = set()
         for line_no, event in _iter_jsonl(path):
             event_count += 1
             facts.extend(
@@ -44,7 +44,7 @@ class TraceAdapter:
                     line_no=line_no,
                     source=source,
                     observed_confidence=observed_confidence,
-                    timed_out_actions=timed_out_actions,
+                    timed_out_attempts=timed_out_attempts,
                 )
             )
         if event_count == 0:
@@ -92,13 +92,27 @@ def _trace_event_id(*, source: str, line_no: int) -> str:
     return f"{source_key}:{line_no}"
 
 
+def _attempt_correlation(event: dict[str, Any]) -> str | None:
+    """Return an explicit attempt correlation id when the trace provides one.
+
+    We intentionally do not synthesize correlation across separately identified
+    requests. When no correlation field exists, ``None`` permits only the weaker
+    within-action temporal heuristic for traces that genuinely lack identifiers.
+    """
+    for key in ("request_id", "correlation_id", "trace_id", "span_id"):
+        value = event.get(key)
+        if isinstance(value, str) and value.strip():
+            return f"{key}:{value.strip()}"
+    return None
+
+
 def _facts_from_event(
     *,
     event: dict[str, Any],
     line_no: int,
     source: str,
     observed_confidence: ConfidenceRecord,
-    timed_out_actions: set[str],
+    timed_out_attempts: set[tuple[str, str | None]],
 ) -> list[SemanticFact]:
     facts: list[SemanticFact] = []
     action_id = event.get("action") or event.get("action_id") or event.get("op")
@@ -111,6 +125,7 @@ def _facts_from_event(
         id=_trace_event_id(source=source, line_no=line_no),
     )
     event_source_ref = f"{source}:{line_no}"
+    attempt = (action.id, _attempt_correlation(event))
 
     # Link the event to the action explicitly. Observations belong to this event,
     # not to the action's canonical semantic definition.
@@ -160,7 +175,7 @@ def _facts_from_event(
         "504",
     }
     if is_timeout:
-        timed_out_actions.add(action.id)
+        timed_out_attempts.add(attempt)
         facts.append(
             SemanticFact(
                 fact_id=make_fact_id(
@@ -201,13 +216,14 @@ def _facts_from_event(
             )
         )
 
-        # A commit observed after a timeout for the same action supports a safety
-        # inference about retry policy. It does not turn the observation itself
-        # into an action-level fact. The inference remains explicitly inferred.
-        if (
-            action.id in timed_out_actions
-            and str(state_effect).lower() in {"committed", "refund_committed", "applied"}
-        ):
+        # A commit correlated to a prior timeout supports a safety inference
+        # about retry policy. A separately identified later request must not
+        # inherit the timeout merely because it has the same action id.
+        if attempt in timed_out_attempts and str(state_effect).lower() in {
+            "committed",
+            "refund_committed",
+            "applied",
+        }:
             facts.append(
                 SemanticFact(
                     fact_id=make_fact_id(
@@ -226,6 +242,7 @@ def _facts_from_event(
                         evidence_class="operational_trace",
                         derivation_class="inferred",
                         extractor_certainty="medium",
+                        notes="commit observed after a correlated timeout",
                     ),
                     kind_tags=["action", "retry", "trace", "inferred"],
                 )
@@ -248,6 +265,7 @@ def _facts_from_event(
                         evidence_class="operational_trace",
                         derivation_class="inferred",
                         extractor_certainty="low",
+                        notes="guard inferred from commit after a correlated timeout",
                     ),
                     kind_tags=["action", "idempotency", "trace", "inferred"],
                 )
