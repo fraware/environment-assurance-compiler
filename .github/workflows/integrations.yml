@@ -1,6 +1,6 @@
 # Reference integration matrix: openenv, gym, opa, differential(+compose).
-# Fail-closed on hard failures. Optional Docker compose / OPA binary paths
-# skip gracefully when unavailable (markers / ENVASURE_RUN_COMPOSE).
+# Fail-closed on hard failures. Docker compose skips gracefully when unavailable;
+# the OPA gate installs and verifies an exact pinned binary before testing.
 
 name: Integrations
 
@@ -24,9 +24,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Pin system OPA for fmt/test when the binary is installed (not vendored).
-  # --fail-on-empty requires OPA >= 1.10.0
+  # Pin the immutable upstream OPA release asset used for fmt/test.
+  # --fail-on-empty requires OPA >= 1.10.0.
   OPA_VERSION: "1.18.2"
+  OPA_LINUX_AMD64_STATIC_SHA256: "9903e5125ac281104f2c4b7371d10cc3b74a98933743fcbfc174f9bf0ab20de8"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
@@ -78,16 +79,23 @@ jobs:
             echo "::notice::Docker unavailable — compose tests will skip (ENVASURE_RUN_COMPOSE unset)"
           fi
 
-      - name: Install OPA binary
+      - name: Install verified OPA binary
         if: steps.gate.outputs.skip != 'true' && matrix.integration == 'opa'
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL -o /tmp/opa \
-            "https://openpolicyagent.org/downloads/v${OPA_VERSION}/opa_linux_amd64_static"
+          OPA_URL="https://github.com/open-policy-agent/opa/releases/download/v${OPA_VERSION}/opa_linux_amd64_static"
+          curl --fail --show-error --location \
+            --retry 4 --retry-all-errors --retry-delay 3 --retry-max-time 600 \
+            --connect-timeout 15 --max-time 180 \
+            -o /tmp/opa "$OPA_URL"
+          test -s /tmp/opa
+          printf '%s  %s\n' "$OPA_LINUX_AMD64_STATIC_SHA256" /tmp/opa | sha256sum --check --strict
           chmod +x /tmp/opa
           sudo mv /tmp/opa /usr/local/bin/opa
           opa version
+          INSTALLED_VERSION="$(opa version | awk -F': ' '/^Version:/{print $2}')"
+          test "$INSTALLED_VERSION" = "$OPA_VERSION"
 
       - name: Run integration
         if: steps.gate.outputs.skip != 'true'
@@ -119,7 +127,7 @@ jobs:
             opa)
               pip install -e ".[opa,dev]"
               pytest tests/integration/opa -q --cov=envassure --cov-fail-under=0
-              # Generate a bundle and run opa fmt/test when binary is present.
+              # Generate a bundle and run opa fmt/test against the verified binary.
               BUNDLE="$(mktemp -d)"
               eac obligations generate examples/opa_authorization/input/world.json \
                 -o "$BUNDLE" --allow-unsupported

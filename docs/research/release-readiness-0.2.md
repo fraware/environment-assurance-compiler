@@ -1,11 +1,127 @@
 # Release readiness — EnvAssure 0.2 RC
 
 Milestone **EAC-R00** baseline freeze for the EnvAssure 0.2 remediation track.
-This document records what HEAD claimed at freeze time, what 0.2 RC may assert,
-and how to capture local quality baselines. It does **not** assert that those
-baselines were green unless an entry below explicitly records measured results.
+This document preserves the historical freeze evidence and records newer release
+candidate evidence in explicitly dated sections. A green structural or CI gate
+must never be interpreted as proof of production behavioral parity or high
+fidelity unless the corresponding fidelity claim has its own evidence.
 
-## Base revision
+## Current exact-tree evidence — 2026-08-26
+
+This is the newest repository-level evidence snapshot. It supersedes the July
+quality measurements for the current development baseline, but does **not** erase
+or rewrite the historical R00 freeze recorded below.
+
+| Field | Evidence |
+| ----- | -------- |
+| Current `main` commit after PR #16 | `e2718eefca0e17d989ae3bee6df4d03299c0fe61` |
+| Current `main` Git tree | `57e8f250f1ba9ca2455c30072ec18c7995ce2228` |
+| Validated PR #16 merge commit | `098131303bb79f9383714ba0dabcd0ac7187d297` |
+| Validated PR #16 head | `76f115701a2f37f2e2fb185ea3fbd03b0a3572de` |
+| Validated merge base | `0ffaa860ab25a98f24cd746054e140c10ea844d7` |
+| Validated merge Git tree | `57e8f250f1ba9ca2455c30072ec18c7995ce2228` |
+| Package version | `0.2.0.dev0` — **Pre-Alpha**, not Beta |
+| Python matrix | 3.11 / 3.12 / 3.13 |
+
+The tested PR merge commit and the actual merged `main` commit point to the
+**same Git tree**. The repository content on `main` is therefore byte-identical
+to the merge tree exercised by the PR gates. The commit objects differ because
+the final merge has a different commit message/timestamp, not because the tree
+content differs.
+
+### Exact merge-tree CI evidence
+
+All six release-critical PR workflows were terminal green on the exact PR #16
+candidate before merge:
+
+- **CI** — success.
+- **Docs** — success (`mkdocs build --strict`).
+- **Security** — success, including blocking Gitleaks, dependency audit, CodeQL,
+  and Trivy gates.
+- **Integrations** — success after rerunning one externally failed OPA-download
+  job; Gym, OpenEnv, differential, and OPA integration jobs all completed.
+- **Test Release** — success from a freshly built/installed wheel, including the
+  public E1 example contract.
+- **Cross-Python reproducibility** — success.
+
+Python 3.12 CI recorded:
+
+| Gate | Measured result | Enforced floor |
+| ---- | --------------- | -------------- |
+| Test collection | **342 collected; 327 passed; 15 expected skips** | no unexpected failure |
+| Overall branch coverage | **75.68%** | ≥75% |
+| Core coverage | **84%** | ≥80% |
+| Assurance coverage | **85%** | ≥80% |
+| Semantic-core coverage | **91%** | ≥90% |
+| Ruff | passed | blocking |
+| Ruff format | **168 files already formatted** | blocking |
+| Mypy | **no issues in 131 source files** | blocking |
+
+The 15 base-matrix skips are attributable to intentionally absent optional
+integration dependencies/binaries or Docker Compose. Those paths are not treated
+as silently covered: dedicated extras and integration jobs separately exercise
+the release-qualified Gym/PettingZoo/OPA/OpenEnv paths, while Compose remains an
+explicit conditional integration.
+
+The OPA rerun is substantive evidence rather than a wrapper-only green result:
+OPA `1.18.2` installed, **6 OPA integration tests passed**, the generated bundle
+contained **7 obligations**, `opa test --fail-on-empty` passed **2/2**, the public
+OPA example evaluated successfully, and its `verify.sh` passed. The first OPA
+attempt failed before tests because the upstream binary download terminated with
+`curl` code 56; that transport weakness is being hardened separately.
+
+### E1 evidence and claim boundary
+
+PR #16 completed issue #8's OpenAPI-backed example contract. E1 imports OpenAPI,
+procedure, and trace evidence; distinguishes event observations from canonical
+action semantics; carries inferred facts as inferred; preserves a genuine retry
+policy disagreement as an unresolved ambiguity; fails closed where executable
+semantics are unresolved; runs only the modeled non-timeout path; packages; and
+verifies the pack.
+
+E1 still **does not** establish authoritative timeout-state semantics, a resolved
+retry policy, idempotency behavior, or correctness of the live payment rail. It
+remains **EF-0**, with no expert decision artifact. `verify-pack` establishes
+pack structure/integrity only; it is not empirical validation or production
+parity evidence.
+
+### Merged-`main` workflow caveat
+
+The merge was performed through the connected GitHub integration. At the time of
+this evidence capture, GitHub had emitted **no new push-triggered workflow set**
+for commit `e2718eefca0e17d989ae3bee6df4d03299c0fe61`. Do not report a fresh
+merged-`main` Actions run that did not occur. The admissible evidence here is the
+identity of the final `main` Git tree with the merge tree that all six PR gates
+actually exercised.
+
+A later PR that changes this tree must obtain its own fresh merge-candidate
+evidence; tree identity does not transfer across later changes.
+
+### Current release decision boundary
+
+This snapshot is acceptable as a **current pre-alpha development baseline**. It
+is **not** authorization to cut `v0.2.0b1`, an RC, or a final release.
+
+Known gates still open before public beta/final release include:
+
+- issue #17: live server-side protection/ruleset enforcement for `main` remains
+  absent; CI configuration in the repository is not equivalent to enforced
+  branch policy;
+- PyPI/TestPyPI package-name and trusted-publisher setup;
+- required GitHub Environments and approvals for publication targets;
+- independent maintainer reproduction of a release candidate;
+- annotated, signed release tag and exact-tag release workflow evidence;
+- final release-candidate documentation/evidence refresh after remaining
+  hardening changes;
+- supply-chain hardening of mutable GitHub Action references before final
+  release, unless an explicitly documented risk decision is made.
+
+PR #16 was merged without a submitted GitHub review object after exact-tree CI
+and adversarial technical audit. That should **not** be treated as satisfying a
+future beta/final human-governance requirement. Formal branch/ruleset enforcement
+remains issue #17's acceptance boundary.
+
+## Base revision — historical R00 freeze
 
 | Field | Value |
 | ----- | ----- |
@@ -47,8 +163,8 @@ Aligned with [limitations](limitations.md) and
 - Silent repair of missing operational semantics.
 - An RL trainer, model-serving platform, general-purpose proof assistant, or
   single-number composite fidelity leaderboard.
-- That optional extras (`gym`, `pettingzoo`, `postgres`, `model-assisted`) are
-  required for core assurance workflows.
+- That optional extras (`gym`, `pettingzoo`, `postgres`, `model-assisted`, `opa`,
+  `openenv`) are required for core assurance workflows.
 
 Strategic freeze during remediation (R01–R12): **no new CLI commands, adapters,
 or extras** until those milestones land. See the remediation plan.
@@ -121,76 +237,65 @@ Authoritative list: [limitations](limitations.md).
 Honest fidelity bounds and operational constraints (local-first, explicit
 migrate, pre-alpha API churn) apply unchanged to the 0.2 RC track.
 
-## Baseline quality gates (how to capture)
+## Baseline quality gates — historical capture instructions
 
-Do **not** treat the following as “passed” unless you paste measured output and
-date below. Commands are recorded so maintainers can freeze a known-good baseline
-at the base SHA (or a later remediation SHA).
-
-### Pytest
+The commands below are retained as part of the R00 historical record. The current
+measured evidence is the dated section at the top of this document.
 
 ```bash
 python -m pip install -e ".[dev]"
-pytest
-# Coverage gates (CI-enforced; floors from measured suite ~78% overall /
-# ~83% cores / ~85% assurance / ~91% semantic):
 pytest --cov=envassure --cov-report=term-missing --cov-report=xml --cov-fail-under=75
 coverage report --rcfile=.coveragerc.cores       # fail-under 80
 coverage report --rcfile=.coveragerc.assurance  # fail-under 80
 coverage report --rcfile=.coveragerc.semantic   # fail-under 90
-# Security-critical branches: prefer dedicated fail-closed unit tests over
-# forcing 100% branch coverage.
+mypy
 ```
+
+Historical July capture:
 
 | Capture field | Value |
 | ------------- | ----- |
 | Date / SHA | 2026-07-25 (working tree; post semantic-core raise) |
 | Result | **195 passed**; overall ~**78%**, cores ~**83%**, assurance ~**85%**, semantic ~**91%** (branch) |
-| Notes (skips / flakes) | No `pytest.mark.skip` / `xfail` markers found in `tests/`; treat unexpected skips as regression |
+| Mypy | not recorded in the R00 freeze |
+| Notes | historical local result; do not substitute it for the 2026-08-26 exact-tree evidence above |
 
-### Mypy
+## Explicit migration evidence
 
-```bash
-mypy
-# equivalent to configured files under [tool.mypy] (src/envassure, strict)
-```
+The release suite includes direct migration coverage rather than relying only on
+schema compatibility claims. Current tests exercise:
 
-| Capture field | Value |
-| ------------- | ----- |
-| Date / SHA | _not recorded in this freeze — run locally and paste_ |
-| Result | _pending measurement_ |
+- the two-minor read window (`0.1.0` and `0.2.0`);
+- additive `0.1.0 → 0.2.0` transforms and deprecated `profile` normalization;
+- migrated-document validation and file round-trip;
+- dry-run behavior without writes;
+- current-version no-op behavior;
+- fail-closed rejection of unknown versions;
+- CLI migration from `0.1.0` to `0.2.0`;
+- proof that `verify-pack` does **not** silently migrate a pack.
 
-### Example smoke (optional)
-
-```bash
-eac build-ir --module examples/counter/world.py -o /tmp/counter-ir.json
-eac lint /tmp/counter-ir.json
-eac run /tmp/counter-ir.json -a increment,increment
-```
-
-Record exit codes and any diagnostics if claiming example readiness.
+This is the evidence basis for the public statement that migration is explicit.
 
 ## PR merge discipline
 
 Until GitHub branch protection is fully configured for this repository:
 
-1. **Default-branch merges require review** — no direct push of feature work to
-   `main` during the R01–R17 remediation window when alternatives exist.
-2. Prefer small, independently useful PRs; do not expand CLI/adapter/extra
-   surface while R01–R12 are open (strategic freeze).
-3. CI on `main` / PRs to `main` must stay green; prefer additive jobs that can
-   succeed on pre-alpha (see `.github/workflows/ci.yml`).
-4. When org access allows: enable required status checks, dismiss stale reviews,
-   and restrict force-pushes on `main`.
+1. No ordinary direct push of feature work to `main` when a PR path exists.
+2. Validate the actual PR merge candidate, not only the feature-branch head.
+3. Any new commit invalidates earlier exact-head green evidence.
+4. For beta/final release, require formal review and server-side enforcement;
+   exact-tree automated evidence alone does not substitute for that governance.
+5. When org/repository access allows, enable required status checks, stale-review
+   dismissal, up-to-date merge validation, and force-push/deletion restrictions.
 
 See also
 [CONTRIBUTING.md](https://github.com/fraware/environment-assurance-compiler/blob/main/CONTRIBUTING.md).
 
-## Remediation landed (local verification)
+## Remediation landed — historical local verification
 
 R00–R17 implementation work landed in the working tree after the R00 freeze.
-This section records **local** verification only; it does **not** claim GitHub
-Actions CI was green.
+This section records the historical **local** July verification only; it does
+**not** override the current exact-tree evidence above.
 
 | Field | Value |
 | ----- | ----- |
@@ -198,7 +303,7 @@ Actions CI was green.
 | Base freeze SHA | `c52e22a3e653a1f89786a0580fb492c1e89e2eac` |
 | Integration focus | Observation-separation obligations assert `compile_observation` / empty-on-deny / no full-state leak; concealed leakage probes treat missing/unknown projection as empty; CEGR four-state intake does not collapse indeterminate to match |
 
-### Measured pytest (local)
+### Measured pytest (historical local)
 
 ```bash
 pytest tests/ -q
@@ -210,33 +315,33 @@ pytest tests/ -q
 | Date | 2026-07-25 |
 | Result | **195 passed** (`pytest tests/ -q`); semantic gate **~91%** via `.coveragerc.semantic` |
 | Coverage floors | overall **75** / cores **80** / assurance **80** / semantic **90** |
-| GitHub CI | Not measured in this note (no push from this pass) |
+| GitHub CI | Not measured in this historical note |
 
 ### Remaining gaps vs acceptance gates
 
-- Semantic cores meet the ≥90% fail-under; further gains still available on
-  `reconciliation.cegr` (~85%) and `runtime.engine` (~82%) without using
-  `# pragma: no cover` on reachable arms.
 - Empirical: PR CI caps concealed at `--max-probes 20`; full ≥100
   curated+generated probes remain a local / `nightly-empirical.yml` run.
-- Supply-chain / CI gates wired for 0.2: coverage fail-under (75 / 80 / 80 / 90),
-  blocking `pip-audit`, extras + benchmark jobs, Gitleaks, CycloneDX SBOM
-  preview, and Release workflow with GitHub build-provenance attestations.
-  See [supply chain](../security/supply-chain.md). Local attestation verify
-  against a published tag is still an operator step at release time.
-- Mypy / example smoke not re-recorded in this pass.
+- Supply-chain / CI gates wired for 0.2 include coverage fail-under
+  (75 / 80 / 80 / 90), blocking `pip-audit`, extras + benchmark jobs, Gitleaks,
+  CycloneDX SBOM preview, and the Release workflow with GitHub build-provenance
+  attestations. See [supply chain](../security/supply-chain.md).
+- Local attestation verification against a published tag remains an operator step
+  at release time.
+- Mutable GitHub Action major-version references remain a supply-chain trust edge
+  to eliminate or explicitly accept before final release.
 
 ### Public beta (`0.2.0b1`) integration honesty
 
 | Integration | In-tree status | CI caveat |
 | ----------- | -------------- | --------- |
-| Gymnasium | Release-qualified adapter + E5 example | `integrations.yml` gym job |
+| Gymnasium | Release-qualified adapter + E5 example | dedicated `Integrations` gym job |
 | OpenEnv | Adapter + export/test/serve-smoke; pin `0.4.1` | No full HTTP claim; OpenEnv image optional on release |
-| OPA | Bundle generate/report always | `opa fmt`/`test` need system binary (CI pin `1.18.2`) |
+| OPA | Bundle generation/evaluation with system OPA `1.18.2` | binary acquisition is external and is being checksum/retry hardened |
 | Differential | In-process HTTP refund + planted mismatch | Compose only when `ENVASURE_RUN_COMPOSE=1` + Docker |
 
-Manual DoD still open: PyPI/TestPyPI name claim, GitHub Environments, independent
-maintainer repro of an RC, annotated signed `v0.2.0b1` tag cut.
+Manual beta DoD still open: PyPI/TestPyPI name claim, GitHub Environments,
+independent maintainer reproduction of an RC, and an annotated signed
+`v0.2.0b1` tag cut with exact-tag release evidence.
 
 ## Related docs
 

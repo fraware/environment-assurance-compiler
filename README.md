@@ -9,7 +9,7 @@
 
 [![CI](https://github.com/fraware/environment-assurance-compiler/actions/workflows/ci.yml/badge.svg)](https://github.com/fraware/environment-assurance-compiler/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
 [![Status](https://img.shields.io/badge/status-pre--alpha-informational.svg)](https://github.com/fraware/environment-assurance-compiler)
 [![Package](https://img.shields.io/badge/package-envassure-0f766e.svg)](https://github.com/fraware/environment-assurance-compiler)
 
@@ -22,7 +22,7 @@ It is for people building **agent evaluations**, **simulations**, and
 actions, provenance for what you know (and what you don't), and artifacts you can
 inspect in CI.
 
-> Pre-alpha (`0.1.0a0`). The core compile → lint → run → package loop works today.
+> Pre-alpha (`0.2.0.dev0`). The core compile → lint → run → package loop works today.
 > APIs and schemas may still change. Building a pack does **not** mean the
 > environment is high-fidelity — that claim needs evidence.
 
@@ -60,7 +60,7 @@ models, serve agents, or grade you with a single fidelity number.
 
 ## Install
 
-Requires **Python 3.11 or 3.12**.
+Requires **Python 3.11, 3.12, or 3.13**.
 
 ```bash
 git clone https://github.com/fraware/environment-assurance-compiler.git
@@ -77,10 +77,12 @@ Optional extras (lazy-imported; fail closed when missing):
 | `pettingzoo` | PettingZoo adapter |
 | `postgres` | Postgres DDL import + opt-in connector |
 | `model-assisted` | HTTP proposal provider (`httpx`); stub works without it |
+| `opa` | OPA obligation backend helpers; evaluation/tests require a system OPA binary |
+| `openenv` | OpenEnv adapter (`openenv==0.4.1`) + Gymnasium |
 | `docs` | MkDocs Material for local doc builds |
 
 ```bash
-pip install -e ".[gym,pettingzoo,postgres,model-assisted,docs]"
+pip install -e ".[gym,pettingzoo,postgres,model-assisted,opa,openenv,docs]"
 ```
 
 ## Quick start (about 60 seconds)
@@ -178,11 +180,11 @@ right place.
 ```bash
 pip install -e ".[dev]"
 ruff check src tests
-mypy src/envassure
+mypy
 pytest
 ```
 
-CI runs on Python 3.11 and 3.12
+CI runs on Python 3.11, 3.12, and 3.13
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 Good first paths: fix a docs mismatch, add an example, or improve a diagnostic
