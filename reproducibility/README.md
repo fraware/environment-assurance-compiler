@@ -35,7 +35,8 @@ bash verify.sh
 ```
 
 `verify.sh` checks every `MANIFEST.json` member digest and
-`expected-digests.json`. It does **not** require the EnvAssure source tree.
+`expected-digests.json`. It does **not** require the EnvAssure source tree and it
+does not establish behavioral or scientific equivalence.
 
 ## Reproduce with checkout
 
@@ -45,11 +46,23 @@ From a full clone:
 bash reproducibility/reproduce.sh
 ```
 
-This re-verifies `packs/` via `eac pack verify`, refreshes digests, then runs
-`verify.sh`.
+This re-verifies the repository packs, refreshes the frozen bundle digests, and
+runs `verify.sh`.
+
+## Cross-Python `.eap` study
+
+The release gate in `.github/workflows/cross-python-reproducibility.yml` builds
+the same canonical `.eap` independently on Python 3.11 and 3.12 with a fixed
+`SOURCE_DATE_EPOCH`. It requires byte-identical archives and equivalent
+manifest/member digests, provenance, verifier diagnostics, and seeded runtime
+events. The only declared interpreter-dependent evidence field is the recorded
+Python version itself.
+
+The comparison implementation is `scripts/cross_python_reproducibility.py`.
+See `docs/reproducibility.md` for the exact contract and claim boundary.
 
 ## Related
 
 - Benchmark packs: `packs/envassure-*`
-- CLI: `eac pack lint|verify|reproduce|inspect`
-- Concealed fixtures: `benchmarks/fixtures/`
+- CLI pack verification: `eac pack verify`
+- Public semantic-regression fixtures: `benchmarks/fixtures/`
