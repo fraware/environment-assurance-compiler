@@ -1,0 +1,43 @@
+name: One-shot stochastic lint fix
+
+on:
+  push:
+    branches: [assurance/p0-stochastic-equivalence]
+    paths:
+      - ".github/workflows/fix-stochastic-callable-import-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: assurance/p0-stochastic-equivalence
+
+      - name: Move Callable import to collections.abc
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/envassure/differential/compare.py")
+          text = path.read_text(encoding="utf-8")
+          old = "from statistics import NormalDist\nfrom typing import Any, Callable\n"
+          new = "from collections.abc import Callable\nfrom statistics import NormalDist\nfrom typing import Any\n"
+          if text.count(old) != 1:
+              raise SystemExit("unexpected compare.py import block")
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          PY
+
+      - name: Commit lint fix
+        run: |
+          set -euo pipefail
+          git diff --check
+          git config user.name "repo-maintenance"
+          git config user.email "repo-maintenance@users.noreply.github.com"
+          git add src/envassure/differential/compare.py
+          git diff --cached --quiet && exit 1
+          git commit -m "fix(differential): satisfy Callable import lint"
+          git push origin HEAD:assurance/p0-stochastic-equivalence
