@@ -1,128 +1,123 @@
 # Support / refund workflow (E1)
 
-Public OpenAPI-backed environment example for conflicting API-contract, approved
-procedure, and operational-trace evidence around `submit_refund` timeout / retry /
-idempotency semantics.
+E1 is a public OpenAPI-backed environment example for conflicting API-contract,
+approved-procedure, and operational-trace evidence around `submit_refund`
+timeout/retry/idempotency semantics.
 
-Production reconciliation emits a **stable hashed** ambiguity id; historical demo
-label **AMB-0042** is a fixture alias in `world.py` only (never hard-coded in the
-reconciliation engine).
+Production reconciliation emits a stable hashed ambiguity id. Historical label
+`AMB-0042` is only a fixture alias for the classic retry conflict; the
+reconciliation engine does not hard-code it.
 
 | Source | Path | Evidence supplied |
 | ------ | ---- | ----------------- |
-| API contract | `input/api.yaml` | `submit_refund` endpoint, request/response shape, HTTP 504 with **no authoritative state semantics** |
-| Approved SOP | `input/refund-sop.md` | instructs agents to **retry** after timeout |
-| Operational trace | `input/trace-0187.jsonl` | one timed-out attempt had already **committed**; retry double-applied |
+| API contract | `input/api.yaml` | `submit_refund` endpoint, request/response shape, HTTP 504 with no authoritative state semantics |
+| Approved SOP | `input/refund-sop.md` | instructs agents to retry after timeout |
+| Operational trace | `input/trace-0187.jsonl` | one timed-out attempt had already committed; retry double-applied |
 
-Compatibility: the same files are also mirrored under `sources/` for older guide
-paths.
+## Safety property demonstrated by the example
 
-## What the typed model contains
+The raw sources are intentionally inconsistent. Before a decision, reconciliation
+must emit `EAC4027`, persist the ambiguity record, and exit nonzero. The example
+does **not** weaken that gate or compile the unresolved retry semantics.
 
-`world.py` projects the evidence into a typed `refund.v1` environment with:
-
-- explicit `refund_status` state and source provenance;
-- a typed `support_agent` actor and observation projection;
-- a typed `submit_refund` action and transition;
-- action provenance linking the OpenAPI, SOP, and trace sources;
-- declared fidelity `EF-0`;
-- one compound known gap: **authoritative state / retry / idempotency semantics
-  after an HTTP 504 are unresolved until expert decision**.
-
-The model deliberately leaves `retry_behavior` and `idempotency` unset and marks
-`authoritative_state_on_504` unsupported. A successful non-timeout action can be
-executed; the disputed timeout/retry path is not silently invented.
-
-## Public example contract
+`run.sh` then records an explicit `example_author` modeling decision:
 
 ```text
-README.md
-pyproject.toml
-input/
-expected/
-run.sh
-verify.sh
-example-manifest.json
+timeout_then_retry_requires_idempotency_key
 ```
 
-`run.sh` / `verify.sh` require `eac` on `PATH` from an **installed wheel** rather
-than an editable checkout. Invoke them through `bash` so the documented path does
-not depend on executable-bit preservation in a checkout. From the repository root
-after `pip install dist/*.whl`:
+Only after that decision is persisted does it copy `decided_world.py` into the
+disposable workspace and compile `refund.v1`. The template refuses to build if
+the accepted ambiguity or its decision artifact is missing.
+
+The decided model contains:
+
+- explicit `refund_status` state with OpenAPI provenance;
+- a typed `support_agent`, observation projection, `submit_refund` action, and
+  transition;
+- action provenance linking OpenAPI + SOP + trace evidence and the persisted
+  decision id;
+- explicit retry behavior and `idempotency_key_required`;
+- declared fidelity `EF-0`;
+- a retained unsupported behavior: `live_payment_rail`.
+
+Any other reconciliation ambiguity records remain visible. One decision is not
+used to silently mark unrelated records resolved.
+
+## Run the public contract
+
+`run.sh` and `verify.sh` require `eac` on `PATH` from an installed wheel rather
+than an editable checkout. Invoke them through `bash` so execution does not depend
+on checkout file-mode preservation:
 
 ```bash
 bash examples/refund/run.sh
 bash examples/refund/verify.sh
 ```
 
-`run.sh` performs the following executable path:
+`run.sh` performs this sequence in `.example-out/workspace`:
 
-1. imports/reconciles the real example sources and requires the classic conflict
-   to remain open;
-2. builds typed IR;
-3. lints the IR;
-4. runs one modeled, non-timeout `agent:submit_refund` action;
-5. packages `refund-authoring.eap` with `--profile authoring`;
-6. verifies the `.eap` with `eac verify-pack`.
+1. `eac init`;
+2. copy the three public inputs into `sources/`;
+3. `eac import` OpenAPI, procedure, and traces;
+4. run `eac facts --reconcile`, **require its pre-decision failure**, and require
+   `EAC4027` plus the classic open ambiguity;
+5. record the explicit example-author decision with `eac decide`;
+6. compile typed IR with `eac build-ir`;
+7. lint with the `executable` profile;
+8. execute one `agent:submit_refund` action and require the modeled state to become
+   `committed`;
+9. package `refund-authoring.eap` with the `authoring` profile;
+10. verify the `.eap` with `eac verify-pack`.
 
-Artifacts are written under `.example-out/`. `verify.sh` independently re-runs
-pack verification and checks state/action provenance, the open ambiguity, the
-runtime step, the embedded provenance bundle, source-manifest disclosure, and
-the scoped fidelity ledger.
+`verify.sh` independently re-runs pack verification and checks the imported input
+bytes, pre-decision failure evidence, persisted decision, executable lint result,
+runtime result, IR and pack provenance, ambiguity statuses, source-manifest
+disclosure, and fidelity ledger.
 
-### Claim boundary
+## Claim boundary
 
-A clean `verify-pack` result means that the pack is structurally well formed and
-its declared members/checksums pass verification. It **does not** mean the model
-is high fidelity, empirically validated, or production-equivalent. This example
-remains `EF-0`; the default fidelity claim is only `structurally_valid`, with the
-known retry/idempotency gap retained. No source digest is invented when a
-workspace `sources.yml` was not supplied.
+A clean `eac verify-pack` result establishes only that the `.eap` is structurally
+well formed and its required members/checksums pass verification. It does **not**
+establish high fidelity, empirical validation, production parity, or correctness
+of the external payment rail.
 
-The authoring-profile pack is intentionally suitable for demonstrating an
-incomplete model. Resolve the ambiguity before making stronger release-profile
-or fidelity claims.
+The example remains `EF-0`. Its automatically seeded fidelity claim is only
+`structurally_valid`, with `live_payment_rail` retained in `known_gaps`. The
+`example_author` decision is a transparent modeling decision for this executable
+example; it is not represented as independent domain-expert validation.
+
+The example also deliberately packages without a workspace source manifest. The
+pack therefore records its semantic source ids with `digest: null` and explicitly
+states that no `sources.yml` was supplied. No acquisition metadata or source
+digest is invented.
+
+The authoring-profile pack is used because successful executable behavior does
+not by itself satisfy research-release or deployment-calibration evidence
+obligations.
+
+## Reconciliation-only inspection
+
+For a quick view of the undecided source conflict without running the complete
+workflow:
+
+```bash
+python -c "from examples.refund.world import reconcile_refund, find_amb_0042, AMB_0042_ALIAS, CLASSIC_REFUND_RETRY_AMBIGUITY_ID; r=reconcile_refund(); a=find_amb_0042(r); print(a.id, AMB_0042_ALIAS, CLASSIC_REFUND_RETRY_AMBIGUITY_ID); print(r.diagnostics.diagnostics)"
+```
+
+The expected classic conflict is documented in `expected/ambiguity.json`.
+
+## Independent author path
+
+The same evidence→decision→IR pattern is covered by
+`tests/test_refund_author_workflow.py`. The fresh-wheel `Test release` workflow
+also executes this public E1 `run.sh` / `verify.sh` contract on every PR and
+`main`.
 
 Manifest lint:
 
 ```bash
 python scripts/lint_example_manifests.py
 ```
-
-## Reconciliation demo
-
-```bash
-python -c "from examples.refund.world import reconcile_refund, find_amb_0042, AMB_0042_ALIAS, CLASSIC_REFUND_RETRY_AMBIGUITY_ID; r=reconcile_refund(); a=find_amb_0042(r); print(a.id, AMB_0042_ALIAS, CLASSIC_REFUND_RETRY_AMBIGUITY_ID); print(r.diagnostics.diagnostics)"
-```
-
-## Expected open ambiguity
-
-Hashed id for `conflict|action:submit_refund|retry_behavior` (alias `AMB-0042`
-in packaged demo docs). The OpenAPI response code cannot establish whether a
-504 occurred before or after the authoritative refund commit. The procedure and
-trace therefore conflict on safe retry semantics.
-
-## Closing the ambiguity as an external author
-
-To move beyond the intentionally incomplete authoring example:
-
-1. `eac init` a workspace and copy `input/` into its `sources/`;
-2. `eac import openapi|procedure|traces … --merge` for each source;
-3. `eac facts --reconcile` and inspect the hashed retry conflict;
-4. `eac decide <ambiguity-id> -i … -r … --rationale …`;
-5. project the accepted decision into a workspace `world.py` (set
-   `retry_behavior` / `idempotency`) — see
-   `tests/fixtures/author/refund_decided_world.py`;
-6. `eac build-ir --path . --force`;
-7. lint and run only paths justified by the resulting semantics;
-8. `eac package ir/world.json -o pack.eap --profile authoring` (or a stricter
-   profile only when its obligations are actually met);
-9. `eac verify-pack pack.eap`;
-10. inspect `fidelity/ledger.json` as scoped claims, never an aggregate fidelity
-    score.
-
-Automated coverage for the decided author path lives in
-`tests/test_refund_author_workflow.py`. The fresh-wheel release workflow also
-executes this public E1 `run.sh` / `verify.sh` contract.
 
 Guide: [Build from OpenAPI](../../docs/guides/build-from-openapi.md).
