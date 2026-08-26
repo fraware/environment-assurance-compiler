@@ -142,8 +142,9 @@ assert any(f.predicate == "procedure_timeout_acknowledgement" for f in facts)
 assert any(f.predicate == "observed_timeout" for f in facts)
 
 # The retry disagreement remains real at the policy layer: the SOP instructs an
-# unconditional retry, while the trace supports an inferred safety prohibition
-# unless an idempotency key is used. Both heuristics must be labeled inferred.
+# unconditional retry, while request r-0187-a supports one trace-derived safety
+# inference after its timeout is correlated with a later commit. The distinct
+# retry request r-0187-b must not inherit r-0187-a's timeout.
 retry_facts = [
     f
     for f in facts
@@ -151,17 +152,23 @@ retry_facts = [
     and f.subject.id == "submit_refund"
     and f.predicate == "retry_behavior"
 ]
+assert len(retry_facts) == 2, [f.model_dump(mode="json") for f in retry_facts]
 assert {f.value for f in retry_facts} == {
     "retry_on_timeout",
     "do_not_retry_without_idempotency_key",
 }
 assert all(f.confidence.derivation_class == "inferred" for f in retry_facts)
-assert any(
-    f.predicate == "retry_guard_requirement"
-    and f.value == "idempotency_key"
-    and f.confidence.derivation_class == "inferred"
+trace_retry = [f for f in retry_facts if f.confidence.evidence_class == "operational_trace"]
+assert len(trace_retry) == 1
+assert trace_retry[0].source_refs[0].endswith(":2")
+retry_guards = [
+    f
     for f in facts
-)
+    if f.predicate == "retry_guard_requirement" and f.value == "idempotency_key"
+]
+assert len(retry_guards) == 1
+assert retry_guards[0].confidence.derivation_class == "inferred"
+assert retry_guards[0].source_refs[0].endswith(":2")
 
 for name in ("build-ir.json", "lint.json"):
     payload = json.loads((out / name).read_text(encoding="utf-8"))
