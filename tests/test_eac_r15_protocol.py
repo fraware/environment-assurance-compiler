@@ -25,9 +25,11 @@ _ALL_ESTIMANDS = (
     "authorization_agreement",
     "failure_agreement",
     "observation_agreement",
+    "idempotency_agreement",
     "stochastic_equivalence",
     "hidden_reference_leakage",
     "cegr_counterexample_rate",
+    "cegr_iteration_count",
     "expert_correction_time",
     "expert_decision_count",
     "unseen_behavior_rate",
@@ -234,6 +236,16 @@ def test_required_estimands_cannot_be_silently_omitted() -> None:
         value for value in payload["primary_estimands"] if value != "wrong_commitment_rate"
     ]
     with pytest.raises(ValidationError, match="wrong_commitment_rate"):
+        EACR15Registration.model_validate(payload)
+
+
+@pytest.mark.parametrize("estimand", ["idempotency_agreement", "cegr_iteration_count"])
+def test_published_protocol_estimands_cannot_be_omitted(estimand: str) -> None:
+    payload = _registration().model_dump(mode="json")
+    payload["primary_estimands"] = [
+        value for value in payload["primary_estimands"] if value != estimand
+    ]
+    with pytest.raises(ValidationError, match=estimand):
         EACR15Registration.model_validate(payload)
 
 
