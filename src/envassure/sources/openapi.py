@@ -313,6 +313,33 @@ def _content_media_types(content: Any) -> list[str]:
     return sorted(str(k) for k in content)
 
 
+def _retry_constraint_from_response_description(description: Any) -> str | None:
+    """Normalize only explicit normative retry language from response prose.
+
+    The response description is free text, so the resulting semantic fact remains
+    inferred. Statements that retry semantics are absent or unspecified must not
+    be converted into retry prohibitions.
+    """
+    if not isinstance(description, str):
+        return None
+    text = " ".join(description.lower().split())
+    if "do not retry" not in text and "never retry" not in text:
+        return None
+    if any(
+        marker in text
+        for marker in (
+            "without status check",
+            "without a status check",
+            "without checking status",
+            "before checking status",
+        )
+    ):
+        return "retry_requires_status_check"
+    if "without an idempotency key" in text or "without idempotency key" in text:
+        return "retry_requires_idempotency_key"
+    return "do_not_retry"
+
+
 def _action_facts(
     *,
     subject: EntityRef,
@@ -463,12 +490,39 @@ def _action_facts(
                 resp, path=f"action:{subject.id}.responses.{code}"
             )
             content = resolved_resp.get("content") if isinstance(resolved_resp, dict) else None
+            description = (
+                resolved_resp.get("description") if isinstance(resolved_resp, dict) else None
+            )
             response_summary[str(code)] = {
                 "media_types": _content_media_types(content),
-                "description": (
-                    resolved_resp.get("description") if isinstance(resolved_resp, dict) else None
-                ),
+                "description": description,
             }
+            retry_constraint = _retry_constraint_from_response_description(description)
+            if retry_constraint is not None:
+                facts.append(
+                    SemanticFact(
+                        fact_id=make_fact_id(
+                            subject_kind=subject.kind,
+                            subject_id=subject.id,
+                            predicate="retry_behavior",
+                            source=source,
+                            suffix=f"response-{code}",
+                        ),
+                        subject=subject,
+                        predicate="retry_behavior",
+                        value=retry_constraint,
+                        source_refs=[source],
+                        extraction_method="openapi.paths.operation.responses.description",
+                        confidence=_inferred_conf(
+                            certainty="high",
+                            notes=(
+                                "Normalized from explicit normative retry language in the "
+                                "OpenAPI response description."
+                            ),
+                        ),
+                        kind_tags=["action", "retry", "response"],
+                    )
+                )
         facts.append(
             SemanticFact(
                 fact_id=make_fact_id(
@@ -503,7 +557,8 @@ def _action_facts(
                 kind_tags=["action", "response"],
             )
         )
-        # Timeout / gateway errors without state semantics — inferred, not direct.
+        # A 504 exposes timeout/gateway-failure behavior, but the status code alone
+        # says nothing about whether server-side state was committed.
         if "504" in responses or 504 in responses:
             facts.append(
                 SemanticFact(
@@ -515,12 +570,15 @@ def _action_facts(
                     ),
                     subject=subject,
                     predicate="timeout_behavior",
-                    value="http_504_no_state_semantics",
+                    value="http_504_timeout_response",
                     source_refs=[source],
                     extraction_method="openapi.paths.operation.responses",
                     confidence=_inferred_conf(
                         certainty="medium",
-                        notes="Inferred from HTTP 504 response presence; contract lacks state semantics.",
+                        notes=(
+                            "Inferred from HTTP 504 response presence; no server-side state "
+                            "semantics are inferred from the status code alone."
+                        ),
                     ),
                     kind_tags=["action", "timeout"],
                 )
