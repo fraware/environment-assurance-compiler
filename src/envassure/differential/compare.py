@@ -498,15 +498,25 @@ def _statistical_success(
             confidence_note="equivalence_margin not declared for stochastic comparison",
             detail="missing_equivalence_margin",
         )
-    if tol.equivalence_margin <= 0:
+    if not 0.0 < tol.equivalence_margin < 1.0:
         return DimensionVerdict(
             dimension=ComparisonDimension.SUCCESS,
             status=VerdictStatus.INDETERMINATE,
             statistical=True,
-            confidence_note="equivalence_margin must be positive for stochastic comparison",
+            confidence_note=(
+                "equivalence_margin must lie strictly inside (0, 1) for binary rate difference"
+            ),
             detail="invalid_equivalence_margin",
         )
-    if tol.stochastic_z <= 0:
+    if tol.stochastic_min_samples <= 0:
+        return DimensionVerdict(
+            dimension=ComparisonDimension.SUCCESS,
+            status=VerdictStatus.INDETERMINATE,
+            statistical=True,
+            confidence_note="stochastic_min_samples must be positive",
+            detail="invalid_minimum_samples",
+        )
+    if not tol.stochastic_z > 0:
         return DimensionVerdict(
             dimension=ComparisonDimension.SUCCESS,
             status=VerdictStatus.INDETERMINATE,
