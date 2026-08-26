@@ -30,114 +30,114 @@ jobs:
 
           latest = '''## Latest exact-tree evidence — post PR #20 (2026-08-26)
 
-This is the newest repository-level evidence snapshot and supersedes earlier
-"current" snapshots below. Historical snapshots remain preserved for auditability.
-A green structural, CI, package, or integration gate is evidence only for the
-proposition it actually exercises; it is not production behavioral-parity or
-high-fidelity evidence by itself.
+          This is the newest repository-level evidence snapshot and supersedes earlier
+          "current" snapshots below. Historical snapshots remain preserved for auditability.
+          A green structural, CI, package, or integration gate is evidence only for the
+          proposition it actually exercises; it is not production behavioral-parity or
+          high-fidelity evidence by itself.
 
-| Field | Evidence |
-| ----- | -------- |
-| Current `main` merge commit | `f92f0ca6f81beafcc08ae4eac62cc8e157863a59` |
-| Current `main` Git tree | `a90ca4d8e3091d0625d2e882468ca137a40e6182` |
-| Validated PR #20 head | `1647dabe227c948907749b5325bbdf410eef91b5` |
-| Validated PR #20 synthetic merge commit | `2ee512ee4d05bad7eb27089e5145b6c32d66fb4b` |
-| Validated merge base | `58967a8d244f42484ae5b60185986899441b3527` |
-| Validated merge Git tree | `a90ca4d8e3091d0625d2e882468ca137a40e6182` |
-| Package version | `0.2.0.dev0` — **Pre-Alpha**, not Beta |
-| Python matrix | 3.11 / 3.12 / 3.13 |
+          | Field | Evidence |
+          | ----- | -------- |
+          | Current `main` merge commit | `f92f0ca6f81beafcc08ae4eac62cc8e157863a59` |
+          | Current `main` Git tree | `a90ca4d8e3091d0625d2e882468ca137a40e6182` |
+          | Validated PR #20 head | `1647dabe227c948907749b5325bbdf410eef91b5` |
+          | Validated PR #20 synthetic merge commit | `2ee512ee4d05bad7eb27089e5145b6c32d66fb4b` |
+          | Validated merge base | `58967a8d244f42484ae5b60185986899441b3527` |
+          | Validated merge Git tree | `a90ca4d8e3091d0625d2e882468ca137a40e6182` |
+          | Package version | `0.2.0.dev0` — **Pre-Alpha**, not Beta |
+          | Python matrix | 3.11 / 3.12 / 3.13 |
 
-The tested PR synthetic merge commit and the actual merged `main` commit point
-to the **same Git tree**. The repository content on `main` is therefore
-byte-identical to the merge tree exercised by the PR gates.
+          The tested PR synthetic merge commit and the actual merged `main` commit point
+          to the **same Git tree**. The repository content on `main` is therefore
+          byte-identical to the merge tree exercised by the PR gates.
 
-### Exact merge-tree CI evidence for PR #20
+          ### Exact merge-tree CI evidence for PR #20
 
-All seven required workflow groups were terminal green on the exact PR #20
-synthetic merge candidate before merge:
+          All seven required workflow groups were terminal green on the exact PR #20
+          synthetic merge candidate before merge:
 
-- **CI** — success.
-- **Docs** — success (`mkdocs build --strict`).
-- **Security** — success: checksum-verified Gitleaks acquisition and repository
-  history scan, blocking dependency audit, CodeQL, and Trivy.
-- **Integrations** — success across Gym, OpenEnv, OPA, and differential; the OPA
-  job exercised the separately checksum-verified pinned OPA binary path.
-- **Test Release** — success: distributions built, wheel installed in a fresh
-  environment, acceptance/smoke passed, and dry-run checksums/release manifest
-  were produced.
-- **Cross-Python reproducibility** — success: Python 3.11 and 3.12 canonical
-  evidence independently built and verified; required byte and semantic identity
-  passed.
-- **Reproduce** — success: benchmark packs linted/verified, the reproducibility
-  bundle regenerated and verified in-tree, then downloaded and verified in a
-  second job without a source checkout.
+          - **CI** — success.
+          - **Docs** — success (`mkdocs build --strict`).
+          - **Security** — success: checksum-verified Gitleaks acquisition and repository
+            history scan, blocking dependency audit, CodeQL, and Trivy.
+          - **Integrations** — success across Gym, OpenEnv, OPA, and differential; the OPA
+            job exercised the separately checksum-verified pinned OPA binary path.
+          - **Test Release** — success: distributions built, wheel installed in a fresh
+            environment, acceptance/smoke passed, and dry-run checksums/release manifest
+            were produced.
+          - **Cross-Python reproducibility** — success: Python 3.11 and 3.12 canonical
+            evidence independently built and verified; required byte and semantic identity
+            passed.
+          - **Reproduce** — success: benchmark packs linted/verified, the reproducibility
+            bundle regenerated and verified in-tree, then downloaded and verified in a
+            second job without a source checkout.
 
-Python 3.12 CI recorded:
+          Python 3.12 CI recorded:
 
-| Gate | Measured result | Enforced floor |
-| ---- | --------------- | -------------- |
-| Test collection | **348 collected; 333 passed; 15 expected skips** | no unexpected failure |
-| Overall branch coverage | **75.68%** | ≥75% |
-| Core coverage | **84%** | ≥80% |
-| Assurance coverage | **85%** | ≥80% |
-| Semantic-core coverage | **91%** | ≥90% |
-| Ruff lint | passed across `src`, `tests`, and `scripts` | blocking |
-| Ruff format | **179 files already formatted** | blocking |
-| Mypy | **no issues in 131 source files** | blocking |
-| Workflow Action immutability | checker passed across all workflows | blocking |
+          | Gate | Measured result | Enforced floor |
+          | ---- | --------------- | -------------- |
+          | Test collection | **348 collected; 333 passed; 15 expected skips** | no unexpected failure |
+          | Overall branch coverage | **75.68%** | ≥75% |
+          | Core coverage | **84%** | ≥80% |
+          | Assurance coverage | **85%** | ≥80% |
+          | Semantic-core coverage | **91%** | ≥90% |
+          | Ruff lint | passed across `src`, `tests`, and `scripts` | blocking |
+          | Ruff format | **179 files already formatted** | blocking |
+          | Mypy | **no issues in 131 source files** | blocking |
+          | Workflow Action immutability | checker passed across all workflows | blocking |
 
-The 15 base-matrix skips remain attributable to intentionally absent optional
-integration dependencies/binaries or Docker Compose. Dedicated extras and
-integration jobs separately exercised the release-qualified Gym, PettingZoo,
-OPA, OpenEnv, and differential paths. These skips are not represented as tested
-coverage of absent dependencies.
+          The 15 base-matrix skips remain attributable to intentionally absent optional
+          integration dependencies/binaries or Docker Compose. Dedicated extras and
+          integration jobs separately exercised the release-qualified Gym, PettingZoo,
+          OPA, OpenEnv, and differential paths. These skips are not represented as tested
+          coverage of absent dependencies.
 
-### Supply-chain hardening state
+          ### Supply-chain hardening state
 
-Issue #19 / PR #20 closed the mutable-workflow-reference defect. Remote workflow
-Actions are pinned to exact commits; CI rejects future mutable remote `uses:`
-references; container actions, if introduced, must use SHA-256 digests; weekly
-GitHub-Actions dependency updates arrive as explicit reviewable changes; and the
-Gitleaks archive is checksum-verified before extraction. These controls improve
-reproducibility and tamper resistance but do not independently establish trust
-in upstream source code.
+          Issue #19 / PR #20 closed the mutable-workflow-reference defect. Remote workflow
+          Actions are pinned to exact commits; CI rejects future mutable remote `uses:`
+          references; container actions, if introduced, must use SHA-256 digests; weekly
+          GitHub-Actions dependency updates arrive as explicit reviewable changes; and the
+          Gitleaks archive is checksum-verified before extraction. These controls improve
+          reproducibility and tamper resistance but do not independently establish trust
+          in upstream source code.
 
-The final CI logs also contain runner warnings that some currently pinned Action
-revisions target a deprecated Node runtime and are being executed by the runner
-under Node 24. This did not fail the tested candidate, but it is maintenance debt
-to address through reviewed Action updates rather than by returning to movable
-tags.
+          The final CI logs also contain runner warnings that some currently pinned Action
+          revisions target a deprecated Node runtime and are being executed by the runner
+          under Node 24. This did not fail the tested candidate, but it is maintenance debt
+          to address through reviewed Action updates rather than by returning to movable
+          tags.
 
-### Current release decision boundary
+          ### Current release decision boundary
 
-This snapshot is a strong **pre-alpha development baseline**. It is **not**
-authorization to cut `v0.2.0b1`, an RC, or a final public release.
+          This snapshot is a strong **pre-alpha development baseline**. It is **not**
+          authorization to cut `v0.2.0b1`, an RC, or a final public release.
 
-Known gates still open include:
+          Known gates still open include:
 
-- issue #17: live server-side protection/ruleset enforcement for `main` is still
-  absent; repository CI configuration is not equivalent to enforced branch
-  policy;
-- PyPI/TestPyPI package-name ownership and trusted-publisher setup have not been
-  independently verified from this repository audit;
-- required publication Environments and approval policies have not been
-  independently verified;
-- independent maintainer reproduction of the release candidate remains an
-  external release gate;
-- an annotated, signed release tag and exact-tag Release-workflow evidence do
-  not yet exist for the intended public release;
-- the package remains `0.2.0.dev0` with the Pre-Alpha classifier;
-- PR #20 had no submitted human review object; automated exact-tree evidence is
-  not represented as satisfying a future human-governance requirement.
+          - issue #17: live server-side protection/ruleset enforcement for `main` is still
+            absent; repository CI configuration is not equivalent to enforced branch
+            policy;
+          - PyPI/TestPyPI package-name ownership and trusted-publisher setup have not been
+            independently verified from this repository audit;
+          - required publication Environments and approval policies have not been
+            independently verified;
+          - independent maintainer reproduction of the release candidate remains an
+            external release gate;
+          - an annotated, signed release tag and exact-tag Release-workflow evidence do
+            not yet exist for the intended public release;
+          - the package remains `0.2.0.dev0` with the Pre-Alpha classifier;
+          - PR #20 had no submitted human review object; automated exact-tree evidence is
+            not represented as satisfying a future human-governance requirement.
 
-The merge performed through the repository integration produced `main` commit
-`f92f0ca6f81beafcc08ae4eac62cc8e157863a59`. The admissible post-merge evidence
-is exact Git-tree identity with the fully tested synthetic merge tree above.
-Do not infer a fresh merged-`main` workflow run unless one is separately
-observed and recorded.
+          The merge performed through the repository integration produced `main` commit
+          `f92f0ca6f81beafcc08ae4eac62cc8e157863a59`. The admissible post-merge evidence
+          is exact Git-tree identity with the fully tested synthetic merge tree above.
+          Do not infer a fresh merged-`main` workflow run unless one is separately
+          observed and recorded.
 
-'''
-
+          '''
+          latest = "\n".join(line[10:] if line.startswith("          ") else line for line in latest.splitlines()) + "\n\n"
           historical = "## Historical exact-tree evidence — PR #16 (2026-08-26)\n"
           text = text.replace(marker, latest + historical, 1)
           path.write_text(text, encoding="utf-8")
