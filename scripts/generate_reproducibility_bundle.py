@@ -22,14 +22,12 @@ def _sha256(path: Path) -> str:
 
 def _git_commit() -> str:
     try:
-        return (
-            subprocess.check_output(
-                ["git", "rev-parse", "HEAD"],
-                cwd=ROOT,
-                stderr=subprocess.DEVNULL,
-                text=True,
-            ).strip()
-        )
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=ROOT,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
     except (subprocess.CalledProcessError, FileNotFoundError, OSError):
         return "UNKNOWN"
 

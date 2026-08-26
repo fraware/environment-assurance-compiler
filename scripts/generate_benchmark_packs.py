@@ -579,14 +579,10 @@ def _write_pack(spec: dict) -> Path:
             "mapped_from": "envassure.benchmark.workflows",
         },
     }
-    (pack_dir / "pack.yaml").write_text(
-        yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8"
-    )
+    (pack_dir / "pack.yaml").write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
     tree_digest = compute_pack_tree_digest(pack_dir)
     manifest["digests"]["pack_tree"] = tree_digest
-    (pack_dir / "pack.yaml").write_text(
-        yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8"
-    )
+    (pack_dir / "pack.yaml").write_text(yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8")
     return pack_dir
 
 
