@@ -89,15 +89,39 @@ def _git_object_id(value: str, *, field: str) -> str:
 
 
 class StochasticAnalysisRegistration(BaseModel):
-    """Preregistered stochastic-equivalence method for the stochastic family."""
+    """Exact preregistration binding for the stochastic-family analysis."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    method: Literal["paired_mean_difference_ci", "exact_paired_equivalence"]
+    method_id: str = Field(min_length=1)
+    method_document_digest: str
     alpha: float = Field(gt=0.0, lt=1.0)
     equivalence_margin: float = Field(gt=0.0, lt=1.0)
     minimum_samples: int = Field(ge=MIN_HELDOUT_PROBES_PER_FAMILY)
     assumptions: tuple[str, ...] = Field(min_length=1)
+
+    @field_validator("method_id")
+    @classmethod
+    def _method_identifier(cls, value: str) -> str:
+        identifier = value.strip()
+        if not identifier:
+            raise ValueError("method_id must be non-empty after trimming")
+        return identifier
+
+    @field_validator("method_document_digest")
+    @classmethod
+    def _method_digest(cls, value: str, info: Any) -> str:
+        return _sha256(value, field=info.field_name)
+
+    @field_validator("assumptions")
+    @classmethod
+    def _assumptions(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        cleaned = tuple(item.strip() for item in value)
+        if any(not item for item in cleaned):
+            raise ValueError("assumptions must contain only non-empty strings")
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("assumptions must not contain duplicates")
+        return cleaned
 
 
 class WorkflowRegistration(BaseModel):
@@ -149,7 +173,7 @@ class EACR15Registration(BaseModel):
     protocol_document_digest: str
     prohibited_reference_access_before_freeze: bool = True
     generated_fixture_suite_is_qualification_reference: Literal[False] = False
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata_digest: str | None = None
 
     @field_validator("envassure_commit")
     @classmethod
@@ -159,6 +183,13 @@ class EACR15Registration(BaseModel):
     @field_validator("reference_custodian_commitment", "protocol_document_digest")
     @classmethod
     def _root_digest(cls, value: str, info: Any) -> str:
+        return _sha256(value, field=info.field_name)
+
+    @field_validator("metadata_digest")
+    @classmethod
+    def _optional_registration_digest(cls, value: str | None, info: Any) -> str | None:
+        if value is None:
+            return None
         return _sha256(value, field=info.field_name)
 
     @model_validator(mode="after")
@@ -224,8 +255,16 @@ class WorkflowEvidence(BaseModel):
 
     @model_validator(mode="after")
     def _status_consistency(self) -> WorkflowEvidence:
-        if self.status == "indeterminate" and not self.indeterminate_reasons:
-            raise ValueError("indeterminate evidence requires at least one reason")
+        reasons = tuple(reason.strip() for reason in self.indeterminate_reasons)
+        if any(not reason for reason in reasons):
+            raise ValueError("evidence reasons must be non-empty strings")
+        if len(set(reasons)) != len(reasons):
+            raise ValueError("evidence reasons must not contain duplicates")
+        if self.status == "complete" and reasons:
+            raise ValueError("complete evidence cannot carry indeterminate reasons")
+        if self.status in {"indeterminate", "invalid"} and not reasons:
+            raise ValueError(f"{self.status} evidence requires at least one reason")
+        object.__setattr__(self, "indeterminate_reasons", reasons)
         return self
 
 
@@ -243,7 +282,7 @@ class EACR15EvidenceBundle(BaseModel):
     negative_results_digest: str
     external_custodian_attestation_digest: str | None = None
     independent_reviewer_signoff_digest: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata_digest: str | None = None
 
     @field_validator("registration_digest", "aggregate_report_digest", "negative_results_digest")
     @classmethod
@@ -258,6 +297,7 @@ class EACR15EvidenceBundle(BaseModel):
     @field_validator(
         "external_custodian_attestation_digest",
         "independent_reviewer_signoff_digest",
+        "metadata_digest",
     )
     @classmethod
     def _optional_bundle_digest(cls, value: str | None, info: Any) -> str | None:

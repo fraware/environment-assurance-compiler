@@ -42,7 +42,8 @@ def _workflow(family: str, index: int, *, probe_count: int = 100) -> WorkflowReg
     stochastic = None
     if family == "stochastic_operational":
         stochastic = StochasticAnalysisRegistration(
-            method="paired_mean_difference_ci",
+            method_id="paired-binary-difference-bonferroni-clopper-pearson-v1",
+            method_document_digest=_digest(9),
             alpha=0.05,
             equivalence_margin=0.05,
             minimum_samples=100,
@@ -132,6 +133,41 @@ def test_registration_accepts_git_sha1_without_calling_it_sha256() -> None:
     payload["envassure_commit"] = "z" * 40
     with pytest.raises(ValidationError, match="Git object id"):
         EACR15Registration.model_validate(payload)
+
+
+def test_stochastic_registration_binds_exact_method_document() -> None:
+    registration = _registration()
+    stochastic = registration.workflow_registrations[2].stochastic_analysis
+    assert stochastic is not None
+    assert stochastic.method_id == "paired-binary-difference-bonferroni-clopper-pearson-v1"
+    assert stochastic.method_document_digest == _digest(9)
+
+    payload = stochastic.model_dump(mode="json")
+    payload.pop("method_document_digest")
+    with pytest.raises(ValidationError):
+        StochasticAnalysisRegistration.model_validate(payload)
+
+
+def test_registration_has_no_mutable_inline_metadata_surface() -> None:
+    registration = _registration()
+    assert registration.metadata_digest is None
+    with pytest.raises(ValidationError, match="frozen"):
+        registration.metadata_digest = _digest(999)  # type: ignore[misc]
+
+
+def test_invalid_and_complete_evidence_reason_consistency() -> None:
+    registration = _registration()
+    evidence = _workflow_evidence(registration.workflow_registrations[0], 0)
+
+    payload = evidence.model_dump(mode="json")
+    payload["status"] = "invalid"
+    with pytest.raises(ValidationError, match="requires at least one reason"):
+        WorkflowEvidence.model_validate(payload)
+
+    payload = evidence.model_dump(mode="json")
+    payload["indeterminate_reasons"] = ["should not accompany complete evidence"]
+    with pytest.raises(ValidationError, match="complete evidence"):
+        WorkflowEvidence.model_validate(payload)
 
 
 def test_stochastic_family_requires_preregistered_equivalence_method() -> None:
