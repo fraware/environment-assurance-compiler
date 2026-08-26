@@ -96,7 +96,10 @@ def test_importer_conflicting_openapi_procedure_reconcile() -> None:
     retry_ambiguity = next(amb for amb in result.unresolved_ambiguities if amb.id == expected_id)
     assert retry_ambiguity.subject == "action:submit_refund"
     assert retry_ambiguity.conflict_class == "semantic_conflict"
-    assert any("retry_requires_status_check" in value for value in retry_ambiguity.candidate_interpretations)
+    assert any(
+        "retry_requires_status_check" in value
+        for value in retry_ambiguity.candidate_interpretations
+    )
     assert any("retry_on_timeout" in value for value in retry_ambiguity.candidate_interpretations)
     assert retry_ambiguity.provenance.origin_kind == "unresolved_conflict"
     for amb in result.unresolved_ambiguities:
