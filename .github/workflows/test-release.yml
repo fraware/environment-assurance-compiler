@@ -52,6 +52,11 @@ jobs:
           /tmp/eac-wheel/bin/eac package /tmp/counter-ir.json -o /tmp/counter.eap
           /tmp/eac-wheel/bin/eac verify-pack /tmp/counter.eap
 
+          # Public E1 contract: use only the freshly installed wheel on PATH.
+          PATH="/tmp/eac-wheel/bin:${PATH}" ./examples/refund/run.sh
+          PATH="/tmp/eac-wheel/bin:${PATH}" ./examples/refund/verify.sh
+          /tmp/eac-wheel/bin/python scripts/lint_example_manifests.py
+
       - name: Checksums + release-manifest (dry-run tag)
         run: |
           set -euo pipefail
