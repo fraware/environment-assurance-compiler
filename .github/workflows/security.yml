@@ -19,23 +19,33 @@ concurrency:
   group: security-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GITLEAKS_VERSION: "8.28.0"
+  GITLEAKS_LINUX_X64_SHA256: "a65b5253807a68ac0cafa4414031fd740aeb55f54fb7e55f386acb52e6a840eb"
+
 jobs:
   secret-scan:
     name: gitleaks secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
-      - name: Install gitleaks
-        env:
-          GITLEAKS_VERSION: "8.28.0"
+      - name: Install verified gitleaks
+        shell: bash
         run: |
           set -euo pipefail
-          curl -sSfL \
-            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-            | tar -xz gitleaks
+          ARCHIVE="/tmp/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          URL="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl --fail --show-error --location \
+            --retry 4 --retry-all-errors --retry-delay 3 --retry-max-time 300 \
+            --connect-timeout 15 --max-time 180 \
+            -o "$ARCHIVE" "$URL"
+          test -s "$ARCHIVE"
+          printf '%s  %s\n' "$GITLEAKS_LINUX_X64_SHA256" "$ARCHIVE" | sha256sum --check --strict
+          tar -xzf "$ARCHIVE" gitleaks
           ./gitleaks version
+          ./gitleaks version | grep -Fq "$GITLEAKS_VERSION"
       - name: Scan repository history
         run: ./gitleaks detect --source . --verbose --redact --no-banner
 
@@ -43,8 +53,8 @@ jobs:
     name: pip-audit (blocking)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
           cache: pip
@@ -65,16 +75,16 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@42947a340483f03ba47bb1a039b2c519aab3df85 # v3 (3.37.8)
         with:
           languages: python
           queries: security-extended
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@42947a340483f03ba47bb1a039b2c519aab3df85 # v3 (3.37.8)
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@42947a340483f03ba47bb1a039b2c519aab3df85 # v3 (3.37.8)
         with:
           category: "/language:python"
 
@@ -82,9 +92,9 @@ jobs:
     name: Dockerfile Trivy config + fs scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Trivy filesystem / config (blocking on CRITICAL)
-        uses: aquasecurity/trivy-action@0.35.0
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           scan-type: fs
           scan-ref: .
