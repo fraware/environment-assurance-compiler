@@ -36,7 +36,7 @@ eac import procedure "${WORKSPACE}/sources/refund-sop.md" \
 eac import traces "${WORKSPACE}/sources/trace-0187.jsonl" \
   --path "${WORKSPACE}" --merge --json > "${OUT_DIR}/import-traces.json"
 
-echo "==> reconcile (EAC4027 is expected and must fail closed before decision)"
+echo "==> reconcile (EAC4027 is expected; conflicted semantics must not be projected)"
 set +e
 eac facts --path "${WORKSPACE}" --reconcile --json > "${OUT_DIR}/reconcile.json"
 RECONCILE_RC=$?
@@ -69,7 +69,7 @@ classic = next(a for a in records if a["id"] == classic_id)
 assert classic["status"] == "open", classic
 assert classic["subject"] == "action:submit_refund", classic
 assert classic["conflict_class"] == "semantic_conflict", classic
-print("expected pre-decision failure:", classic_id)
+print("expected pre-projection failure:", classic_id)
 for ambiguity in records:
     print(
         "ambiguity",
@@ -77,28 +77,22 @@ for ambiguity in records:
         ambiguity["conflict_class"],
         ambiguity["subject"],
         ambiguity["status"],
+        "excerpts=", ambiguity.get("source_excerpts", []),
     )
 PY
 
-echo "==> record explicit example-author decision for classic retry conflict"
-eac decide "${CLASSIC_ID}" \
-  --path "${WORKSPACE}" \
-  --interpretation timeout_then_retry_requires_idempotency_key \
-  --role example_author \
-  --rationale "For this executable example, reconcile the SOP retry instruction with the double-apply trace by requiring an idempotency key; this is a modeling decision, not a production-fidelity claim." \
-  --json > "${OUT_DIR}/decision.json"
+# The scoped template refuses to build if the classic source conflict is not
+# still open. It omits all disputed timeout/retry/idempotency predicates instead
+# of inventing a winner.
+cp "${ROOT}/scoped_world.py" "${WORKSPACE}/world.py"
 
-# The template refuses to build unless the accepted ambiguity and persisted
-# decision artifact are present in the workspace.
-cp "${ROOT}/decided_world.py" "${WORKSPACE}/world.py"
-
-echo "==> build typed IR after explicit decision"
+echo "==> build typed IR scoped to non-conflicted semantics"
 eac build-ir --path "${WORKSPACE}" --force --json > "${OUT_DIR}/build-ir.json"
 
 echo "==> lint executable semantics"
 eac lint "${IR_PATH}" --profile executable --force --json > "${OUT_DIR}/lint.json"
 
-echo "==> run one modeled submit_refund action"
+echo "==> run one modeled non-timeout submit_refund action"
 eac run "${IR_PATH}" \
   --actions agent:submit_refund \
   --seed 7 \
@@ -119,7 +113,7 @@ assert payload["final_state"]["refund_status"] == "committed", payload["final_st
 print("runtime step ok")
 PY
 
-echo "==> package authoring-profile .eap (EF-0; live payment rail remains unsupported)"
+echo "==> package authoring-profile .eap (EF-0; disputed and external paths unsupported)"
 eac package "${IR_PATH}" \
   -o "${PACK_PATH}" \
   --profile authoring \
