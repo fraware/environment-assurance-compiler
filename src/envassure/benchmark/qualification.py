@@ -154,6 +154,13 @@ class WorkflowRegistration(BaseModel):
             raise ValueError("stochastic_operational requires a preregistered stochastic_analysis")
         if self.family != "stochastic_operational" and self.stochastic_analysis is not None:
             raise ValueError("stochastic_analysis is only valid for stochastic_operational")
+        if (
+            self.stochastic_analysis is not None
+            and self.stochastic_analysis.minimum_samples > self.heldout_probe_count
+        ):
+            raise ValueError(
+                "stochastic minimum_samples cannot exceed the committed heldout_probe_count"
+            )
         return self
 
 
@@ -224,10 +231,13 @@ class WorkflowEvidence(BaseModel):
 
     family: WorkflowFamily
     source_package_digest: str
+    source_manifest_digest: str
+    reference_commitment: str
     compiled_ir_digest: str
     assumptions_digest: str
     reconciliation_log_digest: str
     heldout_probe_commitment: str
+    analysis_method_document_digest: str | None = None
     adjudicated_probe_count: int = Field(ge=0)
     raw_results_digest: str
     statistics_digest: str
@@ -239,6 +249,8 @@ class WorkflowEvidence(BaseModel):
 
     @field_validator(
         "source_package_digest",
+        "source_manifest_digest",
+        "reference_commitment",
         "compiled_ir_digest",
         "assumptions_digest",
         "reconciliation_log_digest",
@@ -253,6 +265,13 @@ class WorkflowEvidence(BaseModel):
     def _evidence_digest(cls, value: str, info: Any) -> str:
         return _sha256(value, field=info.field_name)
 
+    @field_validator("analysis_method_document_digest")
+    @classmethod
+    def _optional_analysis_method_digest(cls, value: str | None, info: Any) -> str | None:
+        if value is None:
+            return None
+        return _sha256(value, field=info.field_name)
+
     @model_validator(mode="after")
     def _status_consistency(self) -> WorkflowEvidence:
         reasons = tuple(reason.strip() for reason in self.indeterminate_reasons)
@@ -264,6 +283,14 @@ class WorkflowEvidence(BaseModel):
             raise ValueError("complete evidence cannot carry indeterminate reasons")
         if self.status in {"indeterminate", "invalid"} and not reasons:
             raise ValueError(f"{self.status} evidence requires at least one reason")
+        if self.family == "stochastic_operational" and self.analysis_method_document_digest is None:
+            raise ValueError(
+                "stochastic_operational evidence requires analysis_method_document_digest"
+            )
+        if self.family != "stochastic_operational" and self.analysis_method_document_digest is not None:
+            raise ValueError(
+                "analysis_method_document_digest is only valid for stochastic_operational"
+            )
         object.__setattr__(self, "indeterminate_reasons", reasons)
         return self
 
@@ -363,10 +390,23 @@ def evaluate_eac_r15_bundle(
             continue
         if evidence_item.source_package_digest != expected.source_package_digest:
             blockers.append(f"source_package_digest_mismatch:{family}")
+        if evidence_item.source_manifest_digest != expected.source_manifest_digest:
+            blockers.append(f"source_manifest_digest_mismatch:{family}")
+        if evidence_item.reference_commitment != expected.reference_commitment:
+            blockers.append(f"reference_commitment_mismatch:{family}")
         if evidence_item.heldout_probe_commitment != expected.heldout_probe_commitment:
             blockers.append(f"probe_commitment_mismatch:{family}")
         if evidence_item.adjudicated_probe_count < expected.heldout_probe_count:
             blockers.append(f"insufficient_adjudicated_probes:{family}")
+        if evidence_item.adjudicated_probe_count > expected.heldout_probe_count:
+            blockers.append(f"uncommitted_adjudicated_probes:{family}")
+        expected_method_digest = (
+            expected.stochastic_analysis.method_document_digest
+            if expected.stochastic_analysis is not None
+            else None
+        )
+        if evidence_item.analysis_method_document_digest != expected_method_digest:
+            blockers.append(f"analysis_method_digest_mismatch:{family}")
         if evidence_item.status != "complete":
             all_complete = False
             blockers.append(f"workflow_not_complete:{family}:{evidence_item.status}")
@@ -394,7 +434,7 @@ def evaluate_eac_r15_bundle(
         "Local protocol integrity is not evidence that the reference was concealed.",
         "The public generated regression suite cannot satisfy EAC-R15 concealment.",
         "Independent custodian/reviewer attestations require a separately trusted verifier.",
-        "Missing or underpowered workflow evidence remains indeterminate; no scalar fidelity average is emitted.",
+        "Missing, uncommitted, or underpowered workflow evidence remains indeterminate; no scalar fidelity average is emitted.",
     )
     return EACR15ProtocolAssessment(
         study_id=registration.study_id,
