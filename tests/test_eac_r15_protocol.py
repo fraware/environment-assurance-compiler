@@ -81,10 +81,17 @@ def _workflow_evidence(reg: WorkflowRegistration, index: int) -> WorkflowEvidenc
     return WorkflowEvidence(
         family=reg.family,
         source_package_digest=reg.source_package_digest,
+        source_manifest_digest=reg.source_manifest_digest,
+        reference_commitment=reg.reference_commitment,
         compiled_ir_digest=_digest(60 + index),
         assumptions_digest=_digest(70 + index),
         reconciliation_log_digest=_digest(80 + index),
         heldout_probe_commitment=reg.heldout_probe_commitment,
+        analysis_method_document_digest=(
+            reg.stochastic_analysis.method_document_digest
+            if reg.stochastic_analysis is not None
+            else None
+        ),
         adjudicated_probe_count=reg.heldout_probe_count,
         raw_results_digest=_digest(90 + index),
         statistics_digest=_digest(100 + index),
@@ -148,6 +155,28 @@ def test_stochastic_registration_binds_exact_method_document() -> None:
         StochasticAnalysisRegistration.model_validate(payload)
 
 
+def test_stochastic_minimum_cannot_exceed_committed_probe_count() -> None:
+    stochastic = StochasticAnalysisRegistration(
+        method_id="paired-binary-difference-bonferroni-clopper-pearson-v1",
+        method_document_digest=_digest(9),
+        alpha=0.05,
+        equivalence_margin=0.05,
+        minimum_samples=101,
+        assumptions=("paired probes are exchangeable within the declared operating regime",),
+    )
+    with pytest.raises(ValidationError, match="minimum_samples"):
+        WorkflowRegistration(
+            family="stochastic_operational",
+            source_package_digest=_digest(1),
+            source_manifest_digest=_digest(2),
+            reference_commitment=_digest(3),
+            heldout_probe_commitment=_digest(4),
+            heldout_probe_count=100,
+            estimands=_ALL_ESTIMANDS,
+            stochastic_analysis=stochastic,
+        )
+
+
 def test_registration_has_no_mutable_inline_metadata_surface() -> None:
     registration = _registration()
     assert registration.metadata_digest is None
@@ -167,6 +196,15 @@ def test_invalid_and_complete_evidence_reason_consistency() -> None:
     payload = evidence.model_dump(mode="json")
     payload["indeterminate_reasons"] = ["should not accompany complete evidence"]
     with pytest.raises(ValidationError, match="complete evidence"):
+        WorkflowEvidence.model_validate(payload)
+
+
+def test_stochastic_evidence_requires_bound_analysis_method() -> None:
+    registration = _registration()
+    stochastic = _workflow_evidence(registration.workflow_registrations[2], 2)
+    payload = stochastic.model_dump(mode="json")
+    payload["analysis_method_document_digest"] = None
+    with pytest.raises(ValidationError, match="analysis_method_document_digest"):
         WorkflowEvidence.model_validate(payload)
 
 
@@ -226,6 +264,32 @@ def test_probe_commitment_rebinding_breaks_local_integrity() -> None:
     assert "probe_commitment_mismatch:transactional_enterprise" in assessment.blockers
 
 
+def test_source_manifest_and_reference_rebinding_break_local_integrity() -> None:
+    registration = _registration()
+    evidence = _bundle(registration)
+    payload = evidence.model_dump(mode="json")
+    payload["workflows"][0]["source_manifest_digest"] = _digest(201)
+    payload["workflows"][1]["reference_commitment"] = _digest(202)
+    rebound = EACR15EvidenceBundle.model_validate(payload)
+
+    assessment = evaluate_eac_r15_bundle(registration, rebound)
+    assert assessment.local_protocol_integrity is False
+    assert "source_manifest_digest_mismatch:transactional_enterprise" in assessment.blockers
+    assert "reference_commitment_mismatch:authorization_heavy" in assessment.blockers
+
+
+def test_stochastic_method_rebinding_breaks_local_integrity() -> None:
+    registration = _registration()
+    evidence = _bundle(registration)
+    payload = evidence.model_dump(mode="json")
+    payload["workflows"][2]["analysis_method_document_digest"] = _digest(203)
+    rebound = EACR15EvidenceBundle.model_validate(payload)
+
+    assessment = evaluate_eac_r15_bundle(registration, rebound)
+    assert assessment.local_protocol_integrity is False
+    assert "analysis_method_digest_mismatch:stochastic_operational" in assessment.blockers
+
+
 def test_underpowered_poststudy_evidence_is_not_complete() -> None:
     registration = _registration()
     evidence = _bundle(registration)
@@ -237,6 +301,19 @@ def test_underpowered_poststudy_evidence_is_not_complete() -> None:
     assert assessment.local_protocol_integrity is False
     assert assessment.all_workflows_complete is False
     assert "insufficient_adjudicated_probes:authorization_heavy" in assessment.blockers
+
+
+def test_extra_uncommitted_poststudy_probes_are_not_complete() -> None:
+    registration = _registration()
+    evidence = _bundle(registration)
+    payload = evidence.model_dump(mode="json")
+    payload["workflows"][0]["adjudicated_probe_count"] = 101
+    expanded = EACR15EvidenceBundle.model_validate(payload)
+
+    assessment = evaluate_eac_r15_bundle(registration, expanded)
+    assert assessment.local_protocol_integrity is False
+    assert assessment.all_workflows_complete is False
+    assert "uncommitted_adjudicated_probes:transactional_enterprise" in assessment.blockers
 
 
 def test_indeterminate_workflow_requires_reason_and_propagates() -> None:
