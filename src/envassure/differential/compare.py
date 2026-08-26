@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from enum import StrEnum
 from math import exp, fsum, lgamma, log, log1p
+from collections.abc import Callable
 from statistics import NormalDist
-from typing import Any, Callable
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
