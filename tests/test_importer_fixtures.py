@@ -10,7 +10,7 @@ from typer.testing import CliRunner
 
 from envassure.cli.app import app
 from envassure.ir.primitives import origin_kind_for_derivation
-from envassure.reconciliation import reconcile
+from envassure.reconciliation import ambiguity_id, reconcile
 from envassure.sources import import_source_report
 
 _FIXTURES = Path(__file__).resolve().parent / "fixtures" / "importers"
@@ -92,10 +92,13 @@ def test_importer_conflicting_openapi_procedure_reconcile() -> None:
     result = reconcile([*openapi_facts, *procedure_facts])
     codes = {d.code for d in result.diagnostics.diagnostics}
     assert "EAC2002" in codes
-    assert any(
-        amb.subject == "action:submit_refund" and amb.aspect == "retry_behavior"
-        for amb in result.unresolved_ambiguities
-    )
+    expected_id = ambiguity_id("action:submit_refund", "retry_behavior", "conflict")
+    retry_ambiguity = next(amb for amb in result.unresolved_ambiguities if amb.id == expected_id)
+    assert retry_ambiguity.subject == "action:submit_refund"
+    assert retry_ambiguity.conflict_class == "semantic_conflict"
+    assert any("retry_requires_status_check" in value for value in retry_ambiguity.candidate_interpretations)
+    assert any("retry_on_timeout" in value for value in retry_ambiguity.candidate_interpretations)
+    assert retry_ambiguity.provenance.origin_kind == "unresolved_conflict"
     for amb in result.unresolved_ambiguities:
         assert amb.provenance.origin_kind == "unresolved_conflict"
 
