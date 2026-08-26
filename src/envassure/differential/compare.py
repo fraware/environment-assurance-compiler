@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import StrEnum
 from math import exp, fsum, lgamma, log, log1p
-from collections.abc import Callable
 from statistics import NormalDist
 from typing import Any
 
