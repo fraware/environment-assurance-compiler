@@ -4,7 +4,7 @@ E1 is a public OpenAPI-backed environment example for conflicting API-contract,
 approved-procedure, and operational-trace evidence around `submit_refund`
 timeout/retry/idempotency semantics.
 
-Production reconciliation emits a stable hashed ambiguity id. Historical label
+Production reconciliation emits stable hashed ambiguity ids. Historical label
 `AMB-0042` is only a fixture alias for the classic retry conflict; the
 reconciliation engine does not hard-code it.
 
@@ -16,33 +16,32 @@ reconciliation engine does not hard-code it.
 
 ## Safety property demonstrated by the example
 
-The raw sources are intentionally inconsistent. Before a decision, reconciliation
-must emit `EAC4027`, persist the ambiguity record, and exit nonzero. The example
-does **not** weaken that gate or compile the unresolved retry semantics.
+The raw sources are intentionally inconsistent. Reconciliation must emit
+`EAC4027`, persist the ambiguity records, and exit nonzero. E1 does **not** choose
+a winner for those conflicted operational facts merely to make an executable
+demo.
 
-`run.sh` then records an explicit `example_author` modeling decision:
+Instead, `scoped_world.py` compiles only the non-conflicted subset of the model.
+It requires the classic retry conflict to remain open and omits the disputed
+`timeout_behavior`, `retry_behavior`, and `idempotency` fields from executable IR.
+Those fields, plus authoritative state after HTTP 504, are explicitly listed as
+unsupported semantics.
 
-```text
-timeout_then_retry_requires_idempotency_key
-```
-
-Only after that decision is persisted does it copy `decided_world.py` into the
-disposable workspace and compile `refund.v1`. The template refuses to build if
-the accepted ambiguity or its decision artifact is missing.
-
-The decided model contains:
+The scoped model contains:
 
 - explicit `refund_status` state with OpenAPI provenance;
 - a typed `support_agent`, observation projection, `submit_refund` action, and
   transition;
-- action provenance linking OpenAPI + SOP + trace evidence and the persisted
-  decision id;
-- explicit retry behavior and `idempotency_key_required`;
+- action provenance linking OpenAPI + SOP + trace evidence, classified as
+  `inferred` because the executable projection is narrower than the conflicting
+  operational evidence;
 - declared fidelity `EF-0`;
-- a retained unsupported behavior: `live_payment_rail`.
+- known unsupported behavior `live_payment_rail`;
+- known unsupported behavior `timeout_retry_idempotency_semantics`;
+- all source-conflict ambiguity records preserved as open, with no decision ids.
 
-Any other reconciliation ambiguity records remain visible. One decision is not
-used to silently mark unrelated records resolved.
+The runtime sequence exercises only the modeled non-timeout action. It must not be
+read as evidence about timeout, retry, idempotency, or the external payment rail.
 
 ## Run the public contract
 
@@ -60,20 +59,22 @@ bash examples/refund/verify.sh
 1. `eac init`;
 2. copy the three public inputs into `sources/`;
 3. `eac import` OpenAPI, procedure, and traces;
-4. run `eac facts --reconcile`, **require its pre-decision failure**, and require
-   `EAC4027` plus the classic open ambiguity;
-5. record the explicit example-author decision with `eac decide`;
+4. run `eac facts --reconcile`, require its expected nonzero exit, require
+   `EAC4027`, and require the classic open ambiguity;
+5. copy `scoped_world.py`, which refuses to build if the classic conflict was
+   silently resolved;
 6. compile typed IR with `eac build-ir`;
-7. lint with the `executable` profile;
-8. execute one `agent:submit_refund` action and require the modeled state to become
-   `committed`;
+7. lint the scoped IR with the `executable` profile;
+8. execute one non-timeout `agent:submit_refund` action and require modeled state
+   to become `committed`;
 9. package `refund-authoring.eap` with the `authoring` profile;
 10. verify the `.eap` with `eac verify-pack`.
 
 `verify.sh` independently re-runs pack verification and checks the imported input
-bytes, pre-decision failure evidence, persisted decision, executable lint result,
-runtime result, IR and pack provenance, ambiguity statuses, source-manifest
-disclosure, and fidelity ledger.
+bytes, expected reconciliation failure, complete open-conflict inventory,
+absence of decision artifacts, executable lint result, runtime result, omitted
+operational fields, unsupported-semantics declarations, IR and pack provenance,
+source-manifest disclosure, and fidelity ledger.
 
 ## Claim boundary
 
@@ -83,23 +84,22 @@ establish high fidelity, empirical validation, production parity, or correctness
 of the external payment rail.
 
 The example remains `EF-0`. Its automatically seeded fidelity claim is only
-`structurally_valid`, with `live_payment_rail` retained in `known_gaps`. The
-`example_author` decision is a transparent modeling decision for this executable
-example; it is not represented as independent domain-expert validation.
+`structurally_valid`; both `live_payment_rail` and
+`timeout_retry_idempotency_semantics` remain in `known_gaps`. There is no expert
+reviewer and no decision artifact in the scoped public contract.
 
-The example also deliberately packages without a workspace source manifest. The
-pack therefore records its semantic source ids with `digest: null` and explicitly
+The example deliberately packages without a workspace source manifest. The pack
+therefore records its semantic source ids with `digest: null` and explicitly
 states that no `sources.yml` was supplied. No acquisition metadata or source
 digest is invented.
 
-The authoring-profile pack is used because successful executable behavior does
-not by itself satisfy research-release or deployment-calibration evidence
+The authoring-profile pack is used because successful execution of a deliberately
+scoped path does not satisfy research-release or deployment-calibration evidence
 obligations.
 
 ## Reconciliation-only inspection
 
-For a quick view of the undecided source conflict without running the complete
-workflow:
+For a quick view of the source conflict without running the complete workflow:
 
 ```bash
 python -c "from examples.refund.world import reconcile_refund, find_amb_0042, AMB_0042_ALIAS, CLASSIC_REFUND_RETRY_AMBIGUITY_ID; r=reconcile_refund(); a=find_amb_0042(r); print(a.id, AMB_0042_ALIAS, CLASSIC_REFUND_RETRY_AMBIGUITY_ID); print(r.diagnostics.diagnostics)"
@@ -107,12 +107,13 @@ python -c "from examples.refund.world import reconcile_refund, find_amb_0042, AM
 
 The expected classic conflict is documented in `expected/ambiguity.json`.
 
-## Independent author path
+## Separate decision-path coverage
 
-The same evidence→decision→IR pattern is covered by
-`tests/test_refund_author_workflow.py`. The fresh-wheel `Test release` workflow
-also executes this public E1 `run.sh` / `verify.sh` contract on every PR and
-`main`.
+`tests/test_refund_author_workflow.py` covers a separate author workflow in which
+an explicit decision is recorded and projected. That test is intentionally not
+used as evidence that the public scoped E1 conflicts were resolved. The
+fresh-wheel `Test release` workflow executes this public `run.sh` / `verify.sh`
+contract on every PR and `main`.
 
 Manifest lint:
 
