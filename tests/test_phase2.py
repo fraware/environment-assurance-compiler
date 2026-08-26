@@ -81,16 +81,20 @@ def test_streaming_traces(tmp_path: Path) -> None:
     assert {f.value for f in event_links} == {"submit_refund"}
 
     # Safety heuristics are action-level inferences and must never claim direct
-    # extraction from the trace.
+    # extraction from the trace. Only request r-0187-a, which timed out and was
+    # later observed committed, supports the inference; r-0187-b is a separate
+    # request and must not inherit that timeout.
     retry = [f for f in facts if f.predicate == "retry_behavior"]
-    assert retry
-    assert {f.value for f in retry} == {"do_not_retry_without_idempotency_key"}
-    assert all(f.subject == EntityRef(kind="action", id="submit_refund") for f in retry)
-    assert all(f.confidence.derivation_class == "inferred" for f in retry)
+    assert len(retry) == 1
+    assert retry[0].value == "do_not_retry_without_idempotency_key"
+    assert retry[0].subject == EntityRef(kind="action", id="submit_refund")
+    assert retry[0].confidence.derivation_class == "inferred"
+    assert retry[0].source_refs[0].endswith(":2")
     guards = [f for f in facts if f.predicate == "retry_guard_requirement"]
-    assert guards
-    assert {f.value for f in guards} == {"idempotency_key"}
-    assert all(f.confidence.derivation_class == "inferred" for f in guards)
+    assert len(guards) == 1
+    assert guards[0].value == "idempotency_key"
+    assert guards[0].confidence.derivation_class == "inferred"
+    assert guards[0].source_refs[0].endswith(":2")
 
     # Line-by-line: large file still parses without requiring array load.
     big = tmp_path / "big.jsonl"
