@@ -1,31 +1,43 @@
-```
+<div align="center">
+
+<pre>
                _____  ___   _____   __________  _____  ____
               / __/ |/ / | / / _ | / __/ __/ / / / _ \/ __/
              / _//    /| |/ / __ |_\ \_\ \/ /_/ / , _/ _/
             /___/_/|_/ |___/_/ |_/___/___/\____/_/|_/___/
 
                  Environment Assurance Compiler  ·  eac
-```
+</pre>
 
-[![CI](https://github.com/fraware/environment-assurance-compiler/actions/workflows/ci.yml/badge.svg)](https://github.com/fraware/environment-assurance-compiler/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
-[![Status](https://img.shields.io/badge/status-pre--alpha-informational.svg)](https://github.com/fraware/environment-assurance-compiler)
-[![Package](https://img.shields.io/badge/package-envassure-0f766e.svg)](https://github.com/fraware/environment-assurance-compiler)
+<a href="https://github.com/fraware/environment-assurance-compiler/actions/workflows/ci.yml">
+  <img src="https://github.com/fraware/environment-assurance-compiler/actions/workflows/ci.yml/badge.svg" alt="CI">
+</a>
+<a href="LICENSE">
+  <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License">
+</a>
+<a href="https://www.python.org/downloads/">
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg" alt="Python">
+</a>
+<a href="https://github.com/fraware/environment-assurance-compiler">
+  <img src="https://img.shields.io/badge/package-envassure-0f766e.svg" alt="Package">
+</a>
 
-**EnvAssure** turns the messy evidence of real systems — API contracts, schemas,
-procedures, traces, and human decisions — into a **typed environment model** you
-can lint, run, package, and verify.
+<br><br>
+
+<strong>EnvAssure</strong> turns the messy evidence of real systems — API contracts,
+schemas, procedures, traces, and human decisions — into a
+<strong>typed environment model</strong> you can lint, run, package, and verify.
+
+</div>
 
 It is for people building **agent evaluations**, **simulations**, and
 **environment packs** who need more than a hand-waved mock: clear state and
 actions, provenance for what you know (and what you don't), and artifacts you can
 inspect in CI.
 
-> Pre-alpha (`0.2.0.dev0`). The core compile → lint → run → package loop works today.
+> Alpha (`0.2.0.dev0`). The core compile → lint → run → package loop works today.
 > APIs and schemas may still change. Building a pack does **not** mean the
 > environment is high-fidelity — that claim needs evidence.
-
 ---
 
 ## Why it exists
